@@ -311,10 +311,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="topbar">
       <div class="topbar-title" id="view-title">All Issues</div>
       <div class="topbar-actions" id="issue-export-actions">
-        <button class="btn btn-ghost btn-sm" onclick="exportJSON()">JSON</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">CSV</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportMarkdown()">Markdown</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportHTML()">HTML</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportJSON(event)">JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV(event)">CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportMarkdown(event)">Markdown</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportHTML(event)">HTML</button>
       </div>
       <button class="btn btn-primary" onclick="openNewIssue()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -359,7 +359,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <!-- Settings view -->
       <div id="view-settings" class="hidden">
         <div class="scard">
-          <div class="schead"><div class="sctitle">Statuses</div><div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="exportJSON()" title="Export all data to JSON">&#x2193; Export JSON</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-input').click()" title="Import from JSON">&#x2191; Import JSON</button></div></div>
+          <div class="schead"><div class="sctitle">Statuses</div><div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="exportJSON(event)" title="Export all data to JSON">&#x2193; Export JSON</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-input').click()" title="Import from JSON">&#x2191; Import JSON</button></div></div>
           <div class="scbody" id="status-settings-body">
             <div style="font-size:12px;color:var(--t3);margin-bottom:2px;">Drag to reorder · Click name to rename · Pick a color</div>
             <div id="status-items"></div>
@@ -429,10 +429,10 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
         <div style="margin-bottom:10px;font-size:13px;color:var(--t2);font-weight:600;">Export</div>
         <div style="margin-bottom:18px;font-size:13px;color:var(--t3);max-width:460px;">All data including statuses, categories, and log entries is included.</div>
         <div class="expsec" style="margin-bottom:30px;">
-          <div class="expcard"><div class="expicon">📋</div><div class="expinfo"><div class="exptitle">JSON</div><div class="expdesc">Full export -- the only format that can be re-imported.</div></div><button class="btn btn-ghost btn-sm" onclick="exportJSON()">Export</button></div>
-          <div class="expcard"><div class="expicon">📊</div><div class="expinfo"><div class="exptitle">CSV</div><div class="expdesc">Spreadsheet-compatible. One row per issue.</div></div><button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export</button></div>
-          <div class="expcard"><div class="expicon">📝</div><div class="expinfo"><div class="exptitle">Markdown</div><div class="expdesc">Readable document grouped by status.</div></div><button class="btn btn-ghost btn-sm" onclick="exportMarkdown()">Export</button></div>
-          <div class="expcard"><div class="expicon">🌐</div><div class="expinfo"><div class="exptitle">HTML Report</div><div class="expdesc">Standalone file ready to share or archive.</div></div><button class="btn btn-ghost btn-sm" onclick="exportHTML()">Export</button></div>
+          <div class="expcard"><div class="expicon">📋</div><div class="expinfo"><div class="exptitle">JSON</div><div class="expdesc">Full export -- the only format that can be re-imported.</div></div><button class="btn btn-ghost btn-sm" onclick="exportJSON(event)">Export</button></div>
+          <div class="expcard"><div class="expicon">📊</div><div class="expinfo"><div class="exptitle">CSV</div><div class="expdesc">Spreadsheet-compatible. One row per issue.</div></div><button class="btn btn-ghost btn-sm" onclick="exportCSV(event)">Export</button></div>
+          <div class="expcard"><div class="expicon">📝</div><div class="expinfo"><div class="exptitle">Markdown</div><div class="expdesc">Readable document grouped by status.</div></div><button class="btn btn-ghost btn-sm" onclick="exportMarkdown(event)">Export</button></div>
+          <div class="expcard"><div class="expicon">🌐</div><div class="expinfo"><div class="exptitle">HTML Report</div><div class="expdesc">Standalone file ready to share or archive.</div></div><button class="btn btn-ghost btn-sm" onclick="exportHTML(event)">Export</button></div>
         </div>
         <div style="margin-bottom:10px;font-size:13px;color:var(--t2);font-weight:600;">Import</div>
         <div style="margin-bottom:14px;font-size:13px;color:var(--t3);max-width:460px;">Import a previously exported JSON file. Replaces all current data.</div>
@@ -2523,8 +2523,11 @@ function dl(filename, content, type) {
     return false;
   }
 }
-async function deliverExport(filename, content, type) {
-  if (exportDestination === 'clipboard') {
+function shouldForceClipboard(evt) {
+  return !!(evt && (evt.ctrlKey || evt.metaKey));
+}
+async function deliverExport(filename, content, type, evt) {
+  if (shouldForceClipboard(evt) || exportDestination === 'clipboard') {
     return {
       ok: await copyExportToClipboard(filename, content),
       mode: 'clipboard',
@@ -2536,14 +2539,14 @@ async function deliverExport(filename, content, type) {
   };
 }
 
-async function exportJSON() {
+async function exportJSON(evt) {
   const exportIssues = getExportIssues();
   const filename = `issues_${exportFileSlug()}_${exportStamp()}.json`;
   const content = JSON.stringify(buildExportPayload(exportIssues),null,2);
-  const result = await deliverExport(filename, content, 'application/json');
+  const result = await deliverExport(filename, content, 'application/json', evt);
   showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length!==1?'s':''} from ${exportScopeLabel()}` : 'Manual JSON export opened');
 }
-async function exportCSV() {
+async function exportCSV(evt) {
   const exportIssues = getExportIssues();
   const hdr=['ID','Title','Status','Severity','Effort','Category','Subcategory','Tags','Blocked By','Description','Notes','Created','Updated'];
   const rows=exportIssues.map(i=>[i.id,i.title,statusLabel(i.status),SEV_LABELS(i.severity)||i.severity,
@@ -2552,10 +2555,10 @@ async function exportCSV() {
     .map(v=>`"${String(v).replace(/"/g,'""')}"`));
   const filename = `issues_${exportFileSlug()}_${exportStamp()}.csv`;
   const content = [hdr.join(','),...rows.map(r=>r.join(','))].join('\n');
-  const result = await deliverExport(filename, content, 'text/csv');
+  const result = await deliverExport(filename, content, 'text/csv', evt);
   showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length!==1?'s':''} from ${exportScopeLabel()}` : 'Manual CSV export opened');
 }
-async function exportMarkdown() {
+async function exportMarkdown(evt) {
   const exportIssues = getExportIssues();
   let md=`# Issue Tracker Export\n_${new Date().toLocaleDateString()}_\n\n`;
   md += `View: ${exportScopeLabel()}\n\n`;
@@ -2572,15 +2575,15 @@ async function exportMarkdown() {
     });
   });
   const filename = `issues_${exportFileSlug()}_${exportStamp()}.md`;
-  const result = await deliverExport(filename, md, 'text/markdown');
+  const result = await deliverExport(filename, md, 'text/markdown', evt);
   showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length!==1?'s':''} from ${exportScopeLabel()}` : 'Manual Markdown export opened');
 }
-async function exportHTML() {
+async function exportHTML(evt) {
   const exportIssues = getExportIssues();
   const rows=exportIssues.map(i=>`<tr><td>${esc(i.id)}</td><td><strong>${esc(i.title)}</strong>${i.description?`<br><small style="color:#888">${esc(i.description.slice(0,100))}${i.description.length>100?'…':''}</small>`:''}</td><td>${esc(statusLabel(i.status))}</td><td>${esc(SEV_LABELS(i.severity)||i.severity)}</td><td>${esc(EFFORT_LABELS(i.effort)||i.effort)}</td><td>${esc(i.category||'')}${i.subcategory?' / '+esc(i.subcategory):''}</td><td>${(i.tags||[]).map(t=>`<span style="background:#e8f0ff;color:#3355cc;border-radius:20px;padding:1px 7px;font-size:11px">${esc(t)}</span>`).join(' ')}</td><td>${(i.log||[]).length}</td><td>${fmtDate(i.createdAt)}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Issue Report</title><style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:40px auto;padding:0 20px;color:#111}h1{font-size:22px;border-bottom:2px solid #eee;padding-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#666;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}td{padding:10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top}tr:hover td{background:#fafafa}</style></head><body><h1>Issue Tracker Report</h1><p style="color:#888;font-size:13px">Exported ${new Date().toLocaleString()} · ${exportIssues.length} issues · ${esc(exportScopeLabel())}</p><table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Severity</th><th>Effort</th><th>Category</th><th>Tags</th><th>Blocked By</th><th>Notes</th><th>Created</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
   const filename = `issues_${exportFileSlug()}_${exportStamp()}.html`;
-  const result = await deliverExport(filename, html, 'text/html');
+  const result = await deliverExport(filename, html, 'text/html', evt);
   showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length!==1?'s':''} from ${exportScopeLabel()}` : 'Manual HTML export opened');
 }
 
