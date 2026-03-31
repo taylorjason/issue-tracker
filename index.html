@@ -20,11 +20,16 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:var(--b2); border-radius:3px; }
 * { scrollbar-width:thin; scrollbar-color:var(--b2) transparent; }
 .app { display:flex; height:100vh; overflow:hidden; }
+.icon-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--border); border-radius:var(--r); background:transparent; color:var(--t2); cursor:pointer; transition:all .13s; flex-shrink:0; }
+.icon-btn:hover { background:var(--s2); color:var(--text); border-color:var(--b2); }
+.sidebar-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .18s; z-index:85; }
 
 /* ── Sidebar ── */
-.sb { width:224px; min-width:224px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; }
+.sb { width:224px; min-width:224px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; transition:width .18s ease, min-width .18s ease, transform .18s ease; position:relative; z-index:90; }
 .sb-logo { padding:17px 20px 13px; border-bottom:1px solid var(--border); font-family:var(--mono); font-weight:600; font-size:13px; letter-spacing:.04em; display:flex; align-items:center; gap:8px; }
 .sb-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; display:inline-block; }
+.sb-logo-text { white-space:nowrap; overflow:hidden; }
+.sb-toggle { margin-left:auto; }
 .sb-sec { padding:14px 10px 6px; }
 .sb-lbl { font-family:var(--mono); font-size:10px; font-weight:500; color:var(--t3); letter-spacing:.1em; text-transform:uppercase; padding:0 8px; margin-bottom:5px; }
 .nav { display:flex; align-items:center; gap:7px; padding:6px 8px; border-radius:var(--r); cursor:pointer; color:var(--t2); font-size:13px; transition:all .12s; border:none; background:none; width:100%; text-align:left; }
@@ -34,6 +39,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .nav.active .nav-cnt { background:var(--b2); }
 .sb-bot { margin-top:auto; padding:10px 12px; border-top:1px solid var(--border); font-family:var(--mono); font-size:10px; color:var(--t3); }
 .divider { height:1px; background:var(--border); margin:3px 0; }
+.topbar-sidebar-toggle { display:none; }
 
 /* ── Main ── */
 .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -259,20 +265,85 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 .tbl tbody tr:hover .row-edit-btn { opacity:1; }
 .row-edit-btn:hover { background:var(--s2); color:var(--text); border-color:var(--b2); }
 
+.app.sidebar-collapsed .sb { width:64px; min-width:64px; }
+.app.sidebar-collapsed .sb-logo { padding-left:16px; padding-right:16px; }
+.app.sidebar-collapsed .sb-logo-text,
+.app.sidebar-collapsed .sb-lbl,
+.app.sidebar-collapsed .nav-text,
+.app.sidebar-collapsed .nav-cnt,
+.app.sidebar-collapsed .sb-bot > div:first-child,
+.app.sidebar-collapsed .sync-label,
+.app.sidebar-collapsed .sync-error-detail { display:none; }
+.app.sidebar-collapsed .sb-sec { padding-left:8px; padding-right:8px; }
+.app.sidebar-collapsed .nav { justify-content:center; padding-left:6px; padding-right:6px; }
+.app.sidebar-collapsed .nav svg,
+.app.sidebar-collapsed .nav > span:first-child { margin:0; }
+.app.sidebar-collapsed .sb-bot { padding-left:8px; padding-right:8px; }
+.app.sidebar-collapsed .sync-bar { justify-content:center; flex-wrap:wrap; }
+.app.sidebar-collapsed .sync-retry { display:none !important; }
+
+@media (max-width: 900px) {
+  .topbar { padding:10px 14px; flex-wrap:wrap; align-items:center; }
+  .topbar-sidebar-toggle { display:inline-flex; }
+  .topbar-actions { width:100%; justify-content:flex-start; }
+  .content { padding:14px; }
+  .fbar { gap:8px; }
+  .srchwrap { min-width:100%; max-width:none; }
+  .mfilter { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }
+  .mfilter-btn { min-width:0; }
+  .tbl { display:block; overflow-x:auto; }
+  .row2, .row3, .dmgrid, .conflict-versions { grid-template-columns:1fr; }
+  .dpanel { width:100%; max-width:100vw; }
+  .modal, .conflict-modal, .setup-card { max-width:none; }
+}
+
+@media (max-width: 720px) {
+  .app { position:relative; }
+  .sb { position:fixed; inset:0 auto 0 0; height:100vh; transform:translateX(-100%); box-shadow:0 24px 80px rgba(0,0,0,.45); }
+  .app.sidebar-open .sb { transform:translateX(0); }
+  .app.sidebar-collapsed .sb { width:224px; min-width:224px; }
+  .app.sidebar-collapsed .sb-logo-text,
+  .app.sidebar-collapsed .sb-lbl,
+  .app.sidebar-collapsed .nav-cnt,
+  .app.sidebar-collapsed .sb-bot > div:first-child,
+  .app.sidebar-collapsed .sync-label,
+  .app.sidebar-collapsed .sync-error-detail { display:initial; }
+  .app.sidebar-collapsed .nav { justify-content:flex-start; padding-left:8px; padding-right:8px; }
+  .app.sidebar-collapsed .sb-bot { padding-left:12px; padding-right:12px; }
+  .app.sidebar-collapsed .sync-retry { display:inline-flex !important; }
+  .sidebar-backdrop { z-index:80; }
+  .app.sidebar-open .sidebar-backdrop { opacity:1; pointer-events:auto; }
+  .topbar-actions { width:100%; }
+  .topbar .btn-primary { width:100%; justify-content:center; }
+  .mfilter { min-width:100%; flex-basis:100%; }
+  .expcard { flex-direction:column; align-items:flex-start; }
+  .dropzone { padding:20px; }
+  .overlay { padding:16px 10px; }
+  .mbody, .dbody { padding:16px; }
+  .mhead, .mfoot, .dhead { padding-left:16px; padding-right:16px; }
+}
+
 .hidden { display:none !important; }
 </style>
 </head>
 <body>
 
 <div class="app">
+  <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
   <!-- Sidebar -->
   <aside class="sb">
-    <div class="sb-logo"><span class="sb-dot"></span>&nbsp;TRACKER</div>
+    <div class="sb-logo">
+      <span class="sb-dot"></span>
+      <span class="sb-logo-text">TRACKER</span>
+      <button class="icon-btn sb-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
     <div class="sb-sec">
       <div class="sb-lbl">Views</div>
       <button class="nav active" data-view="all" onclick="setView('all')">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 5h8M4 8h8M4 11h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        All Issues<span class="nav-cnt" id="cnt-all">0</span>
+        <span class="nav-text">All Issues</span><span class="nav-cnt" id="cnt-all">0</span>
       </button>
       <div id="status-nav"></div>
     </div>
@@ -288,11 +359,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div class="sb-lbl">Manage</div>
       <button class="nav" data-view="settings" onclick="setView('settings')">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M2.93 2.93l1.06 1.06M12.01 12.01l1.06 1.06M2.93 13.07l1.06-1.06M12.01 3.99l1.06-1.06" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Settings
+        <span class="nav-text">Settings</span>
       </button>
       <button class="nav" data-view="export" onclick="setView('export')">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v8M5 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Export / Import
+        <span class="nav-text">Export / Import</span>
       </button>
     </div>
     <div class="sb-bot">
@@ -310,6 +381,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
   <!-- Main -->
   <main class="main">
     <div class="topbar">
+      <button class="icon-btn topbar-sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
       <div class="topbar-title" id="view-title">All Issues</div>
       <div class="topbar-actions" id="issue-export-actions">
         <button class="btn btn-ghost btn-sm" onclick="exportJSON(event)">JSON</button>
@@ -765,6 +839,8 @@ let currentView      = 'all';
 let lastIssueView    = 'all';
 const filterState = { status:[], sev:[], eff:[], cat:[], tag:[], blocked:[], hideDone:false };
 let exportDestination = 'file';
+let sidebarCollapsed = false;
+let sidebarOpen = false;
 let currentIssueId   = null;
 let editingIssueId   = null;
 let newStatusColor   = 0;
@@ -786,6 +862,29 @@ let pendingConflictData = null; // { localPayload, remoteData, remoteSHA }
 let syncState = 'notoken';  // notoken | synced | saving | offline | error
 
 function uid() { return Math.random().toString(36).slice(2,9); }
+function isMobileViewport() { return window.innerWidth <= 720; }
+function applySidebarState() {
+  const app = document.querySelector('.app');
+  if (!app) return;
+  app.classList.toggle('sidebar-collapsed', sidebarCollapsed && !isMobileViewport());
+  app.classList.toggle('sidebar-open', sidebarOpen && isMobileViewport());
+}
+function closeSidebar() {
+  sidebarOpen = false;
+  applySidebarState();
+}
+function toggleSidebar() {
+  if (isMobileViewport()) {
+    sidebarOpen = !sidebarOpen;
+  } else {
+    sidebarCollapsed = !sidebarCollapsed;
+  }
+  applySidebarState();
+}
+function syncResponsiveLayout() {
+  if (!isMobileViewport()) sidebarOpen = false;
+  applySidebarState();
+}
 function debounce(fn, ms) {
   let t;
   return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
@@ -1662,6 +1761,7 @@ function setView(v) {
   document.getElementById('view-title').textContent = title;
   // Show status filter only on All Issues (not on status or tag views)
   document.getElementById('f-status').style.display = v === 'all' ? '' : 'none';
+  if (isMobileViewport()) closeSidebar();
   updateTopbarActions();
   if (activeIssueView) renderTable();
   if (v === 'settings') renderSettings();
@@ -1672,7 +1772,7 @@ function renderSidebarNav() {
   container.innerHTML = statuses.map(st => `
     <button class="nav${currentView===st.id?' active':''}" data-status-id="${st.id}" onclick="setView('${st.id}')">
       <span style="width:8px;height:8px;border-radius:50%;background:${st.color.fg};display:inline-block;flex-shrink:0;"></span>
-      ${esc(st.name)}<span class="nav-cnt">${issues.filter(i=>i.status===st.id).length}</span>
+      <span class="nav-text">${esc(st.name)}</span><span class="nav-cnt">${issues.filter(i=>i.status===st.id).length}</span>
     </button>
   `).join('');
 
@@ -1691,7 +1791,7 @@ function renderSidebarNav() {
     const isActive = currentView === tag;
     return `<button class="nav${isActive?' active':''}" data-tag-view="${esc(tag)}" onclick="setView('${esc(tag)}')">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 4h8l4 4-4 4H2V4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-      ${esc(label)}<span class="nav-cnt">${cnt}</span>
+      <span class="nav-text">${esc(label)}</span><span class="nav-cnt">${cnt}</span>
     </button>`;
   }).join('');
 }
@@ -1977,6 +2077,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('.mfilter')) return;
   document.querySelectorAll('.mfilter-menu').forEach(el => el.classList.add('hidden'));
 });
+window.addEventListener('resize', syncResponsiveLayout);
 
 // ── Issue CRUD ─────────────────────────────────────────────────────────────────
 function openNewIssue() {
@@ -2651,6 +2752,7 @@ updateFilterOptions();
 updateHideDoneButton();
 renderTable();
 updateTopbarActions();
+syncResponsiveLayout();
 
 if (ghToken) {
   setSyncState('saving', 'Connecting…');
