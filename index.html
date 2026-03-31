@@ -482,9 +482,9 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 
         <div class="scard">
           <div class="schead">
-            <div class="sctitle">GitHub Sync</div>
+            <div class="sctitle">Sync Server API</div>
           </div>
-          <div class="scbody" id="gh-settings-section">
+          <div class="scbody" id="api-settings-section">
             <div style="color:var(--t3);font-size:13px;">Loading…</div>
           </div>
         </div>
@@ -678,30 +678,26 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
 <!-- Setup Screen -->
 <div id="setup-screen" class="setup-screen hidden">
   <div class="setup-card">
-    <div class="setup-title">⬡ Connect to GitHub</div>
-    <div class="setup-sub">Your data will be stored in a private GitHub repo as a JSON file, synced across all your devices. No backend required.</div>
+    <div class="setup-title">⬡ Connect to Sync Server</div>
+    <div class="setup-sub">Your data will be synced to a custom backend API, maintaining identical data across all your devices.</div>
     <div class="setup-fields">
       <div class="field">
-        <label class="lbl">GITHUB USERNAME</label>
-        <input class="inp" id="gh-user" placeholder="your-username">
+        <label class="lbl">API URL</label>
+        <input class="inp" id="api-url" placeholder="https://my-vercel-api.vercel.app/api/sync">
+        <div class="setup-hint">The full endpoint URL for your Sync API server.</div>
       </div>
       <div class="field">
-        <label class="lbl">REPOSITORY NAME</label>
-        <input class="inp" id="gh-repo" placeholder="issue-tracker-data">
-        <div class="setup-hint">Create a new private repo on GitHub first. The file <code>issues.json</code> will be created automatically on first save.</div>
-      </div>
-      <div class="field">
-        <label class="lbl">PERSONAL ACCESS TOKEN</label>
-        <input class="inp" id="gh-token" type="password" placeholder="github_pat_…">
-        <div class="setup-hint">Create a Fine-grained token scoped to this repo with <strong>Contents: Read and write</strong>. It never leaves this browser.</div>
+        <label class="lbl">API KEY (OPTIONAL)</label>
+        <input class="inp" id="api-key" type="password" placeholder="secret_key...">
+        <div class="setup-hint">A shared secret to authenticate with your Sync API server.</div>
       </div>
     </div>
     <div style="display:flex;gap:9px;justify-content:flex-end">
-      <button class="btn btn-ghost btn-sm" onclick="skipGitHub()">Skip -- use local only</button>
-      <button class="btn btn-primary" onclick="saveGitHubConfig()">Connect &amp; Sync</button>
+      <button class="btn btn-ghost btn-sm" onclick="skipSync()">Skip -- use local only</button>
+      <button class="btn btn-primary" onclick="saveApiConfig()">Connect &amp; Sync</button>
     </div>
-    <div class="setup-note">GitHub sync is optional. If this network blocks GitHub or a managed proxy interferes, the tracker still works in local mode and JSON import/export remains available.</div>
-    <div class="setup-footer">Configuration is stored in browser storage on this device when available. <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener noreferrer">Create a token ↗</a></div>
+    <div class="setup-note">API sync is optional. If this network blocks your API or a proxy interferes, the tracker still works in local mode and JSON import/export remains available.</div>
+    <div class="setup-footer">Configuration is stored in browser storage on this device when available.</div>
   </div>
 </div>
 
@@ -712,14 +708,14 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
       <div class="mtitle">⚠ Sync Conflict</div>
     </div>
     <div class="mbody">
-      <div style="font-size:13px;color:var(--t2);">GitHub has a newer version than your local data. Choose which version to keep.</div>
+      <div style="font-size:13px;color:var(--t2);">The Sync Server has a newer version than your local data. Choose which version to keep.</div>
       <div class="conflict-versions">
         <div class="conflict-ver">
           <div class="conflict-ver-title">📱 Your Version (Local)</div>
           <div class="conflict-ver-detail" id="conflict-local-detail"></div>
         </div>
         <div class="conflict-ver">
-          <div class="conflict-ver-title">☁ GitHub Version (Remote)</div>
+          <div class="conflict-ver-title">☁ Server Version (Remote)</div>
           <div class="conflict-ver-detail" id="conflict-remote-detail"></div>
         </div>
       </div>
@@ -787,18 +783,15 @@ let efforts    = [];
 function SEV_LABELS(id)    { const s=severities.find(x=>x.id===id); return s?s.name:(id||''); }
 function EFFORT_LABELS(id) { const e=efforts.find(x=>x.id===id);    return e?e.name:(id||''); }
 function EFFORT_LABEL_SHORT(id) { const e=efforts.find(x=>x.id===id); return e?e.label:(id||''); }
-
 const LS_ISSUES  = 'tracker_issues_v3';
 const LS_CATS    = 'tracker_cats_v3';
 const LS_STATS   = 'tracker_statuses_v3';
-const LS_GH_USER = 'tracker_gh_user';
-const LS_GH_REPO = 'tracker_gh_repo';
-const LS_GH_TOK  = 'tracker_gh_token';
-const LS_GH_SHA  = 'tracker_gh_sha';
+const LS_API_URL = 'tracker_api_url';
+const LS_API_KEY = 'tracker_api_key';
+const LS_API_SHA = 'tracker_api_sha';
 const LS_SEVS    = 'tracker_sevs_v1';
 const LS_EFFS    = 'tracker_effs_v1';
 const LS_EXPORT_DEST = 'tracker_export_destination_v1';
-const GH_FILE    = 'issues.json';
 const memoryStore = {};
 const storageAPI = (() => {
   try {
@@ -826,7 +819,7 @@ function storageRemove(key) { storageAPI.removeItem(key); }
 function localModeLabel() { return storageAPI.available ? 'Local only' : 'Session only'; }
 function localModeDetail() {
   return storageAPI.available
-    ? 'GitHub sync is optional. JSON import/export works without cookies or extensions.'
+    ? 'API sync is optional. JSON import/export works without cookies or extensions.'
     : 'Browser storage is unavailable here. Data stays in memory only until this tab closes, so export JSON before leaving.';
 }
 
@@ -853,11 +846,10 @@ let sortDir = 'desc';  // 'asc' | 'desc'
 let detailHistory    = [];   // stack of issue IDs for back navigation
 let ddActiveIdx      = -1;   // dropdown keyboard nav index
 
-// GitHub sync state
-let ghUser  = '';
-let ghRepo  = '';
-let ghToken = '';
-let ghSHA   = '';           // SHA of last known GitHub file version
+// API sync state
+let apiUrl  = '';
+let apiKey  = '';
+let apiSHA  = '';           // SHA of last known Sync file version
 let pendingConflictData = null; // { localPayload, remoteData, remoteSHA }
 let syncState = 'notoken';  // notoken | synced | saving | offline | error
 
@@ -1147,7 +1139,7 @@ function setSyncState(state, label, detail) {
   if (!dot) return;
   dot.className = 'sync-dot ' + state;
   lbl.textContent = label || { notoken:'Local only', synced:'Synced', saving:'Saving…', offline:'Offline', error:'Sync error' }[state] || state;
-  if (force) force.classList.toggle('hidden', !ghToken);
+  if (force) force.classList.toggle('hidden', !apiUrl);
   retry.classList.toggle('hidden', state !== 'offline' && state !== 'error');
   if (detEl) {
     if (detail) {
@@ -1194,38 +1186,33 @@ function loadLocal() {
     exportDestination = 'file';
   }
 }
-function loadGHConfig() {
-  ghUser  = storageGet(LS_GH_USER)  || '';
-  ghRepo  = storageGet(LS_GH_REPO)  || '';
-  ghToken = storageGet(LS_GH_TOK)   || '';
-  ghSHA   = storageGet(LS_GH_SHA)   || '';
+function loadApiConfig() {
+  apiUrl  = storageGet(LS_API_URL)  || '';
+  apiKey  = storageGet(LS_API_KEY)  || '';
+  apiSHA  = storageGet(LS_API_SHA)  || '';
 }
-function saveGHConfig() {
-  storageSet(LS_GH_USER, ghUser);
-  storageSet(LS_GH_REPO, ghRepo);
-  storageSet(LS_GH_TOK,  ghToken);
+function persistApiConfig() {
+  storageSet(LS_API_URL, apiUrl);
+  storageSet(LS_API_KEY,  apiKey);
 }
 function saveSHA(sha) {
-  ghSHA = sha;
-  storageSet(LS_GH_SHA, sha);
+  apiSHA = sha;
+  storageSet(LS_API_SHA, sha);
 }
 
-// keep saveData as the combined save: local + trigger github if configured
-function saveData(triggerGH = true) {
+// keep saveData as the combined save: local + trigger API if configured
+function saveData(triggerApi = true) {
   saveLocal();
-  if (triggerGH && ghToken) githubSave();
+  if (triggerApi && apiUrl && apiKey) apiSave();
 }
 
-// ── GitHub API helpers ────────────────────────────────────────────────────────
-function ghHeaders() {
+// ── API Sync helpers ────────────────────────────────────────────────────────
+function apiHeaders() {
   return {
-    'Authorization': `token ${ghToken}`,
-    'Accept': 'application/vnd.github.v3+json',
+    'Authorization': `Bearer ${apiKey}`,
+    'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
-}
-function ghFileURL() {
-  return `https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${GH_FILE}`;
 }
 function buildPayload() {
   return { issues, categories, statuses, severities, efforts };
@@ -1233,53 +1220,36 @@ function buildPayload() {
 function normalizeNetworkError(err) {
   const raw = err && err.message ? err.message : String(err || 'Unknown error');
   if (raw === 'Failed to fetch' || /fetch/i.test(raw)) {
-    return 'Could not reach GitHub. This is often caused by a proxy, firewall, or managed browser policy. Local mode still works.';
+    return 'Could not reach Sync Server. This is often caused by a proxy, firewall, or missing internet connection. Local mode still works.';
   }
   return raw;
 }
 
-async function githubLoad(opts = {}) {
+async function apiLoad(opts = {}) {
   const { forceRemote = false } = opts;
-  if (!ghToken) { setSyncState('notoken', localModeLabel(), localModeDetail()); return; }
+  if (!apiUrl || !apiKey) { setSyncState('notoken', localModeLabel(), localModeDetail()); return; }
   setSyncState('saving', 'Loading…');
   try {
-    const res = await fetch(ghFileURL(), { headers: ghHeaders() });
-    if (res.status === 404) {
-      // File doesn't exist yet -- first run on this repo, nothing to load
-      setSyncState('synced', 'Synced (new)');
-      return;
-    }
+    const res = await fetch(apiUrl, { headers: apiHeaders() });
+    
     if (res.status === 401 || res.status === 403) {
-      setSyncState('error', 'Auth error', `HTTP ${res.status} -- token invalid or expired. Update it in Settings.`);
-      showToast('GitHub auth failed -- check your token in Settings.');
+      setSyncState('error', 'Auth error', `HTTP ${res.status} -- key invalid. Update it in Settings.`);
+      showToast('API auth failed -- check your key in Settings.');
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    const sha  = json.sha;
+    
+    const sha = json.sha || '';
+    const data = json.content;
 
-    // Decode base64 content from GitHub
-    let rawText;
-    try {
-      rawText = decodeURIComponent(escape(atob(json.content.replace(/\n/g, ''))));
-    } catch(decodeErr) {
-      setSyncState('error', 'Decode error', `Could not decode file from GitHub. It may be corrupted. Raw error: ${decodeErr.message}`);
+    if (!data) {
+      // Return fresh state
+      setSyncState('synced', 'Synced (new)');
       return;
     }
 
-    // Parse JSON
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch(parseErr) {
-      const preview = rawText.slice(0, 80).replace(/\n/g,' ');
-      setSyncState('error', 'Parse error', `File on GitHub is not valid JSON. ${parseErr.message}. Content starts: "${preview}…"`);
-      console.error('GitHub file parse error. Raw content:', rawText);
-      return;
-    }
-
-    // Check for conflict: we have a known SHA and it differs from remote
-    if (!forceRemote && ghSHA && sha !== ghSHA) {
+    if (!forceRemote && apiSHA && sha && sha !== apiSHA) {
       showConflict(buildPayload(), data, sha);
       return;
     }
@@ -1290,58 +1260,53 @@ async function githubLoad(opts = {}) {
   } catch(e) {
     if (!navigator.onLine) { setSyncState('offline'); return; }
     setSyncState('error', 'Sync error', normalizeNetworkError(e));
-    console.error('GitHub load error:', e);
+    console.error('API load error:', e);
   }
 }
 
-async function githubSave() {
-  if (!ghToken) return;
+async function apiSave() {
+  if (!apiUrl || !apiKey) return;
   setSyncState('saving');
   const payload = buildPayload();
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify({ exported: new Date().toISOString(), ...payload }, null, 2))));
-  const body = { message: `Update issues.json -- ${new Date().toISOString()}`, content };
-  if (ghSHA) body.sha = ghSHA;  // required for updates; omitted for first create
+  const body = { content: payload };
+  if (apiSHA) body.sha = apiSHA;
 
   try {
-    const res = await fetch(ghFileURL(), {
-      method: 'PUT',
-      headers: ghHeaders(),
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: apiHeaders(),
       body: JSON.stringify(body),
     });
-    if (res.status === 409 || res.status === 422) {
-      // SHA mismatch -- conflict. Fetch remote to compare.
-      const remoteRes = await fetch(ghFileURL(), { headers: ghHeaders() });
-      if (remoteRes.ok) {
-        const remoteJson = await remoteRes.json();
-        const remoteSHA  = remoteJson.sha;
-        let remoteData;
-        try {
-          const rawRemote = decodeURIComponent(escape(atob(remoteJson.content.replace(/\n/g,''))));
-          remoteData = JSON.parse(rawRemote);
-        } catch(parseErr) {
-          setSyncState('error', 'Parse error', `Remote file is not valid JSON: ${parseErr.message}`);
-          return;
-        }
-        showConflict(payload, remoteData, remoteSHA);
+
+    if (res.status === 409) {
+      // Conflict
+      const resJson = await res.json();
+      const remoteSHA = resJson.remoteSHA || '';
+      // Fetch the remote data to show the conflict properly
+      const getRes = await fetch(apiUrl, { headers: apiHeaders() });
+      if (getRes.ok) {
+        const remoteDataObj = await getRes.json();
+        showConflict(payload, remoteDataObj.content || {}, remoteSHA);
       } else {
         setSyncState('error', 'Conflict', 'Could not fetch remote version to compare. Check connection and retry.');
       }
       return;
     }
+
     if (res.status === 401 || res.status === 403) {
-      setSyncState('error', 'Auth error', `HTTP ${res.status} -- token invalid or expired. Update it in Settings.`);
-      showToast('GitHub auth failed -- check your token in Settings.');
+      setSyncState('error', 'Auth error', `HTTP ${res.status} -- token invalid. Update it in Settings.`);
+      showToast('API auth failed -- check your key in Settings.');
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    saveSHA(json.content.sha);
+    saveSHA(json.sha);
     setSyncState('synced', 'Synced', null);
   } catch(e) {
     if (!navigator.onLine) { setSyncState('offline'); return; }
     setSyncState('error', 'Save failed', normalizeNetworkError(e));
-    showToast('GitHub save failed -- data saved locally.');
-    console.error('GitHub save error:', e);
+    showToast('API save failed -- data saved locally.');
+    console.error('API save error:', e);
   }
 }
 
@@ -1371,13 +1336,13 @@ async function resolveConflict(choice) {
     applyRemoteData(remoteData, remoteSHA);
     saveLocal();
     setSyncState('synced');
-    showToast('Using GitHub version.');
+    showToast('Using API version.');
   } else {
-    // Keep local: force-push local data using the remote SHA (so GitHub accepts it)
+    // Keep local: force-push local data using the remote SHA
     saveSHA(remoteSHA);
     saveLocal();
-    await githubSave();
-    showToast('Local version pushed to GitHub.');
+    await apiSave();
+    showToast('Local version pushed to Sync Server.');
   }
 }
 
@@ -1399,67 +1364,64 @@ function applyRemoteData(data, sha) {
 // ── Setup screen ──────────────────────────────────────────────────────────────
 function showSetupScreen() {
   document.getElementById('setup-screen').classList.remove('hidden');
-  document.getElementById('gh-user').value  = ghUser;
-  document.getElementById('gh-repo').value  = ghRepo;
-  document.getElementById('gh-token').value = ghToken;
+  document.getElementById('api-url').value  = apiUrl;
+  document.getElementById('api-key').value = apiKey;
 }
 function hideSetupScreen() {
   document.getElementById('setup-screen').classList.add('hidden');
 }
 
-async function saveGitHubConfig() {
-  const user  = document.getElementById('gh-user').value.trim();
-  const repo  = document.getElementById('gh-repo').value.trim();
-  const token = document.getElementById('gh-token').value.trim();
-  if (!user || !repo || !token) { showToast('All three fields are required.'); return; }
-  ghUser = user; ghRepo = repo; ghToken = token;
-  ghSHA  = '';   // reset SHA so we do a fresh fetch
-  saveGHConfig();
-  storageRemove(LS_GH_SHA);
+async function saveApiConfig() {
+  const url  = document.getElementById('api-url').value.trim();
+  const key = document.getElementById('api-key').value.trim();
+  if (!url || !key) { showToast('Both fields are required.'); return; }
+  apiUrl = url; apiKey = key;
+  apiSHA  = '';   // reset SHA so we do a fresh fetch
+  persistApiConfig();
+  storageRemove(LS_API_SHA);
   hideSetupScreen();
-  showToast('Connecting to GitHub…');
-  await githubLoad();
+  showToast('Connecting to Server…');
+  await apiLoad();
   if (syncState === 'synced') {
-    showToast('Connected! Data synced from GitHub.');
+    showToast('Connected! Data synced.');
   }
 }
 
-function skipGitHub() {
+function skipSync() {
   hideSetupScreen();
   setSyncState('notoken', localModeLabel(), localModeDetail());
 }
 
-function disconnectGitHub() {
-  if (!confirm('Disconnect GitHub sync? Your local data is kept, but will no longer sync.')) return;
-  ghUser=''; ghRepo=''; ghToken=''; ghSHA='';
-  [LS_GH_USER,LS_GH_REPO,LS_GH_TOK,LS_GH_SHA].forEach(storageRemove);
+function disconnectSync() {
+  if (!confirm('Disconnect sync? Your local data is kept, but will no longer sync.')) return;
+  apiUrl=''; apiKey=''; apiSHA='';
+  [LS_API_URL,LS_API_KEY,LS_API_SHA].forEach(storageRemove);
   setSyncState('notoken', localModeLabel(), localModeDetail());
-  showToast('Disconnected from GitHub.');
-  renderGHSettings();
+  showToast('Disconnected from Sync Server.');
+  renderApiSettings();
 }
 
 // ── Manual & auto retry ───────────────────────────────────────────────────────
 async function forceSync() {
-  if (!ghToken) {
-    showToast('Connect GitHub first.');
+  if (!apiKey) {
+    showToast('Connect to Server first.');
     return;
   }
-  showToast('Syncing from GitHub…');
-  await githubLoad({ forceRemote: true });
-  if (syncState === 'synced') showToast('Pulled latest from GitHub.');
+  showToast('Syncing from Server…');
+  await apiLoad({ forceRemote: true });
+  if (syncState === 'synced') showToast('Pulled latest from Server.');
 }
 
 async function manualRetry() {
   showToast('Retrying sync…');
-  await githubLoad();
-  // if load succeeded (synced), we're good. If we were offline and had pending saves, save now.
+  await apiLoad();
   if (syncState === 'synced') {
     showToast('Sync restored.');
   }
 }
 
-window.addEventListener('online',  () => { if (ghToken && syncState === 'offline') manualRetry(); });
-window.addEventListener('offline', () => { if (ghToken) setSyncState('offline'); });
+window.addEventListener('online',  () => { if (apiKey && syncState === 'offline') manualRetry(); });
+window.addEventListener('offline', () => { if (apiKey) setSyncState('offline'); });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getStatus(id) { return statuses.find(s => s.id === id); }
@@ -2358,20 +2320,20 @@ function renderCatList() {
     </div>`).join('');
 }
 
-function renderGHSettings() {
-  const el = document.getElementById('gh-settings-section');
+function renderApiSettings() {
+  const el = document.getElementById('api-settings-section');
   if (!el) return;
-  if (ghToken) {
-    el.innerHTML = `<div style="font-size:13px;color:var(--t2);margin-bottom:8px;">Connected to <strong>${esc(ghUser)}/${esc(ghRepo)}</strong></div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">If this network blocks GitHub, your local data remains usable and export/import still works.</div>
+  if (apiUrl && apiKey) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--t2);margin-bottom:8px;">Connected to <strong>${esc(apiUrl)}</strong></div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">If this network blocks the API, your local data remains usable and export/import still works.</div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-ghost btn-sm" onclick="showSetupScreen()">Edit Config</button>
-        <button class="btn btn-danger btn-sm" onclick="disconnectGitHub()">Disconnect</button>
+        <button class="btn btn-danger btn-sm" onclick="disconnectSync()">Disconnect</button>
       </div>`;
   } else {
     el.innerHTML = `<div style="font-size:13px;color:var(--t3);margin-bottom:8px;">Not connected. ${storageAPI.available ? 'Data is stored locally in this browser.' : 'This browser is not allowing persistent local storage, so data is only kept for the current tab session.'}</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">Use GitHub sync only if your network allows access to GitHub. JSON export/import remains available either way.</div>
-      <button class="btn btn-ghost btn-sm" onclick="showSetupScreen()">Connect to GitHub</button>`;
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">Use API sync only if your network allows access to the Sync Server. JSON export/import remains available either way.</div>
+      <button class="btn btn-ghost btn-sm" onclick="showSetupScreen()">Connect to Sync Server</button>`;
   }
 }
 
@@ -2552,7 +2514,7 @@ function onEffDrop(e,targetId) {
   saveData(); renderEffItems(); updateFilterOptions();
 }
 
-function renderSettings() { renderStatusItems(); renderCatList(); renderSevItems(); renderEffItems(); renderGHSettings(); renderExportSettings(); }
+function renderSettings() { renderStatusItems(); renderCatList(); renderSevItems(); renderEffItems(); renderApiSettings(); renderExportSettings(); }
 
 // ── Categories ─────────────────────────────────────────────────────────────────
 function openCatModal()  { document.getElementById('cat-modal').classList.remove('hidden'); setTimeout(()=>document.getElementById('cat-name-inp').focus(),50); }
@@ -2718,8 +2680,8 @@ function importJSON(file) {
       severities = Array.isArray(data.severities)&&data.severities.length ? data.severities : DEFAULT_SEVERITIES.map(x=>({...x}));
       efforts    = Array.isArray(data.efforts)&&data.efforts.length       ? data.efforts    : DEFAULT_EFFORTS.map(x=>({...x}));
       if(issues.length){ const maxN=Math.max(...issues.map(i=>{const m=i.id?.match(/(\d+)$/);return m?parseInt(m[1],10):0;})); nextId=maxN+1; }
-      // On import, reset SHA so next save creates/overwrites on GitHub cleanly
-      ghSHA=''; storageRemove(LS_GH_SHA);
+      // On import, reset SHA so next save creates/overwrites on Server cleanly
+      apiSHA=''; storageRemove(LS_API_SHA);
       saveData(); setView('all'); updateCounts(); updateFilterOptions();
       showToast(`Imported ${count} issue${count!==1?'s':''}`);
     } catch(err) { alert('Import failed: '+err.message); }
@@ -2747,7 +2709,7 @@ document.addEventListener('keydown', e => {
 // ── Init ───────────────────────────────────────────────────────────────────────
 document.getElementById('search').addEventListener('input', debounce(renderTable, 120));
 loadLocal();
-loadGHConfig();
+loadApiConfig();
 renderSidebarNav();
 updateCounts();
 updateFilterOptions();
@@ -2756,9 +2718,9 @@ renderTable();
 updateTopbarActions();
 syncResponsiveLayout();
 
-if (ghToken) {
+if (apiUrl) {
   setSyncState('saving', 'Connecting…');
-  githubLoad();
+  apiLoad();
 } else {
   setSyncState('notoken', localModeLabel(), localModeDetail());
 }
