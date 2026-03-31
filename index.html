@@ -300,6 +300,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
     <div class="sync-bar" id="sync-bar">
       <span class="sync-dot notoken" id="sync-dot"></span>
       <span class="sync-label" id="sync-label">No sync</span>
+      <button class="sync-retry hidden" id="sync-force-btn" onclick="forceSync()">Sync</button>
       <button class="sync-retry hidden" id="sync-retry-btn" onclick="manualRetry()">Retry</button>
     </div>
     <div class="sync-error-detail hidden" id="sync-error-detail"></div>
@@ -1041,11 +1042,13 @@ function setSyncState(state, label, detail) {
   syncState = state;
   const dot    = document.getElementById('sync-dot');
   const lbl    = document.getElementById('sync-label');
+  const force  = document.getElementById('sync-force-btn');
   const retry  = document.getElementById('sync-retry-btn');
   const detEl  = document.getElementById('sync-error-detail');
   if (!dot) return;
   dot.className = 'sync-dot ' + state;
   lbl.textContent = label || { notoken:'Local only', synced:'Synced', saving:'Saving…', offline:'Offline', error:'Sync error' }[state] || state;
+  if (force) force.classList.toggle('hidden', !ghToken);
   retry.classList.toggle('hidden', state !== 'offline' && state !== 'error');
   if (detEl) {
     if (detail) {
@@ -1336,6 +1339,15 @@ function disconnectGitHub() {
 }
 
 // ── Manual & auto retry ───────────────────────────────────────────────────────
+async function forceSync() {
+  if (!ghToken) {
+    showToast('Connect GitHub first.');
+    return;
+  }
+  showToast('Syncing from GitHub…');
+  await githubLoad();
+}
+
 async function manualRetry() {
   showToast('Retrying sync…');
   await githubLoad();
