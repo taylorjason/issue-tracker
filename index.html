@@ -336,6 +336,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); font-si
           <div id="f-cat" class="mfilter"></div>
           <div id="f-tag" class="mfilter"></div>
           <div id="f-blocked" class="mfilter"></div>
+          <button class="btn btn-ghost btn-sm" id="hide-done-btn" onclick="toggleHideDone()">Hide Done</button>
           <button class="btn btn-ghost btn-sm hidden" id="clear-btn" onclick="clearFilters()">Clear</button>
         </div>
         <table class="tbl">
@@ -751,7 +752,7 @@ let categories = [];
 let nextId     = 1;
 let currentView      = 'all';
 let lastIssueView    = 'all';
-const filterState = { status:[], sev:[], eff:[], cat:[], tag:[], blocked:[] };
+const filterState = { status:[], sev:[], eff:[], cat:[], tag:[], blocked:[], hideDone:false };
 let currentIssueId   = null;
 let editingIssueId   = null;
 let newStatusColor   = 0;
@@ -1725,6 +1726,21 @@ function clearFilter(id) {
 function getFilterValues(key) {
   return filterState[key] || [];
 }
+function isDoneStatus(issue) {
+  const st = getStatus(issue.status);
+  return !!st && st.name.trim().toLowerCase() === 'done';
+}
+function toggleHideDone() {
+  filterState.hideDone = !filterState.hideDone;
+  updateHideDoneButton();
+  renderTable();
+}
+function updateHideDoneButton() {
+  const btn = document.getElementById('hide-done-btn');
+  if (!btn) return;
+  btn.classList.toggle('btn-primary', filterState.hideDone);
+  btn.classList.toggle('btn-ghost', !filterState.hideDone);
+}
 
 function updateFilterOptions() {
   renderMultiFilter('f-status', 'All Statuses', statuses.map(s => ({ value:s.id, label:s.name })), getFilterValues('status'));
@@ -1775,8 +1791,9 @@ function updateSubcatOptions() {
 
 function clearFilters() {
   document.getElementById('search').value = '';
-  Object.keys(filterState).forEach(key => { filterState[key] = []; });
+  Object.keys(filterState).forEach(key => { filterState[key] = Array.isArray(filterState[key]) ? [] : false; });
   updateFilterOptions();
+  updateHideDoneButton();
   renderTable();
 }
 
@@ -1794,6 +1811,7 @@ function getFiltered() {
   return issues.filter(i => {
     if (isStatusView && i.status !== currentView) return false;
     if (isTagView && !(i.tags||[]).includes(currentView)) return false;
+    if (filterState.hideDone && isDoneStatus(i)) return false;
     if (fst.length  && !fst.includes(i.status)) return false;
     if (fsev.length && !fsev.includes(i.severity)) return false;
     if (feff.length && !feff.includes(i.effort)) return false;
@@ -1900,7 +1918,7 @@ function renderTable() {
   const sorted   = applySorting(filtered);
   const tbody = document.getElementById('issue-tbody');
   const empty  = document.getElementById('empty-state');
-  const hasFilter = !!document.getElementById('search').value || Object.values(filterState).some(vals => vals.length);
+  const hasFilter = !!document.getElementById('search').value || Object.values(filterState).some(vals => Array.isArray(vals) ? vals.length : vals);
   document.getElementById('clear-btn').classList.toggle('hidden', !hasFilter);
   updateSortHeaders();
   if (!sorted.length) { tbody.innerHTML=''; empty.classList.remove('hidden'); return; }
@@ -2553,6 +2571,7 @@ loadGHConfig();
 renderSidebarNav();
 updateCounts();
 updateFilterOptions();
+updateHideDoneButton();
 renderTable();
 updateTopbarActions();
 
