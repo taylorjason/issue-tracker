@@ -1238,7 +1238,8 @@ function normalizeNetworkError(err) {
   return raw;
 }
 
-async function githubLoad() {
+async function githubLoad(opts = {}) {
+  const { forceRemote = false } = opts;
   if (!ghToken) { setSyncState('notoken', localModeLabel(), localModeDetail()); return; }
   setSyncState('saving', 'Loading…');
   try {
@@ -1278,7 +1279,7 @@ async function githubLoad() {
     }
 
     // Check for conflict: we have a known SHA and it differs from remote
-    if (ghSHA && sha !== ghSHA) {
+    if (!forceRemote && ghSHA && sha !== ghSHA) {
       showConflict(buildPayload(), data, sha);
       return;
     }
@@ -1444,7 +1445,8 @@ async function forceSync() {
     return;
   }
   showToast('Syncing from GitHub…');
-  await githubLoad();
+  await githubLoad({ forceRemote: true });
+  if (syncState === 'synced') showToast('Pulled latest from GitHub.');
 }
 
 async function manualRetry() {
