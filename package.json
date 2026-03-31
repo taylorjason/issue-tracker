@@ -1,0 +1,8 @@
+{
+  "name": "issue-tracker-sync-api",
+  "version": "1.0.0",
+  "description": "Simple KV Sync API for the Issue Tracker",
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
+  }
+}
