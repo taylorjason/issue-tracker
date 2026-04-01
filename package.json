@@ -4,5 +4,12 @@
   "description": "Simple KV Sync API for the Issue Tracker",
   "dependencies": {
     "@vercel/kv": "^3.0.0"
-  }
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  },
+  "scripts": {
+    "prepare": "husky"
+  },
+  "build": 2
 }
