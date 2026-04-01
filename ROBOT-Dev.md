@@ -20,6 +20,18 @@ The app must run by opening the HTML file directly in a browser, unless the task
 5. Make the app easy to copy, paste, and edit.
 6. If a dependency is truly required, explain why and keep it optional if possible.
 
+## Git and commits
+
+- Use git for all meaningful work.
+- Commit early and often.
+- Make commits small, atomic, and single-purpose.
+- If a task includes multiple features, bugs, issues, or todos, commit after EACH change.
+- Do not batch unrelated edits into one commit.
+- Keep the repo clean and working.
+- Use clear commit messages.
+- Amend the latest local commit if needed before pushing.
+- Never rewrite shared history unless asked.
+
 ## Output Requirements
 
 When generating the app:
