@@ -22,9 +22,19 @@ try {
 
   // Regex to look for a specific marker: <div id="app-version">...</div>
   const versionRegex = /(<div\s+id="app-version"[^>]*>)[^<]*(<\/div>)/i;
+  const titleRegex = /(<title>)[^<]*(<\/title>)/i;
+  const newTitle = `Issue Tracker v${version}(${newBuild})`;
   
   if (versionRegex.test(htmlData)) {
-    htmlData = htmlData.replace(versionRegex, `$1${versionString}$2`);
+    htmlData = htmlData.replace(versionRegex, `$1\n        ${versionString}$2`);
+    
+    // Also update the title tag
+    if (titleRegex.test(htmlData)) {
+      htmlData = htmlData.replace(titleRegex, `$1${newTitle}$2`);
+    } else {
+      console.warn(`\x1b[33m⚠ Warning: Could not find <title></title> in index.html\x1b[0m`);
+    }
+
     fs.writeFileSync(htmlPath, htmlData);
     console.log(`\x1b[32m✔ Bumped to ${versionString}\x1b[0m`);
     
