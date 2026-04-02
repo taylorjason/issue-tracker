@@ -1938,7 +1938,7 @@
         </button>
       </div>
       <div id="app-version"
-        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">v1.0.0 (Build 6)</div>
+        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">v1.0.0 (Build 7)</div>
       <div class="sb-bot">
         <div style="margin-bottom:6px;"><span id="total-count">0</span> issues total</div>
         <div class="sync-bar" id="sync-bar">
@@ -2166,7 +2166,7 @@
   </div>
 
   <!-- Issue Modal -->
-  <div class="overlay hidden" id="issue-modal" onclick="if(event.target===this)closeIssueModal()">
+  <div class="overlay hidden" id="issue-modal">
     <div class="modal">
       <div class="mhead">
         <div class="mtitle" id="issue-modal-title">New Issue</div>
@@ -2393,7 +2393,7 @@
         </div>
       </div>
       <div class="mfoot">
-        <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use GitHub Version</button>
+        <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use Server Version</button>
         <button class="btn btn-primary" onclick="resolveConflict('local')">Keep My Version (Overwrite)</button>
       </div>
     </div>
