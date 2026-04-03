@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 SERVER_SCRIPT="$SCRIPT_DIR/server.mjs"
 
-PORT="1414"
+PORT="1515"
 
 # ── Start server ──────────────────────────────────────────────────────────────
 echo "[Nova Launcher] Starting server on port $PORT..."
