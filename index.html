@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.0.0(9)</title>
+  <title>Issue Tracker v1.0.0(10)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -1979,7 +1979,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.0.0 (Build 9)</div>
+        v1.0.0 (Build 10)</div>
       <div class="sb-bot">
         <div style="margin-bottom:6px;"><span id="total-count">0</span> issues total</div>
         <div class="sync-bar" id="sync-bar">
@@ -2461,11 +2461,6 @@
           </div>
           <div class="conflict-ver">
             <div class="conflict-ver-title">☁ Server Version (Remote)</div>
-            <div class="conflict-ver-detail" id="conflict-remote-detail"></div>
-          </div>
-        </div>
-      </div>
-      <div class="mfoot">
         <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use Server Version</button>
         <button class="btn btn-primary" onclick="resolveConflict('local')">Keep My Version (Overwrite)</button>
       </div>
@@ -2476,17 +2471,6 @@
 
   <!-- Export Fallback Modal -->
   <div class="overlay hidden" id="export-fallback-modal" onclick="if(event.target===this)closeExportFallback()">
-    <div class="modal">
-      <div class="mhead">
-        <div class="mtitle" id="export-fallback-title">Manual Export</div>
-        <button class="mclose" onclick="closeExportFallback()"><svg width="15" height="15" viewBox="0 0 16 16"
-            fill="none">
-            <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          </svg></button>
-      </div>
-      <div class="mbody">
-        <div class="export-fallback-box">
-          <div class="export-fallback-meta" id="export-fallback-meta"></div>
           <textarea class="export-fallback-text" id="export-fallback-text" spellcheck="false" readonly></textarea>
         </div>
       </div>
@@ -2564,11 +2548,9 @@
     function storageGet(key) { return storageAPI.getItem(key); }
     function storageSet(key, value) { storageAPI.setItem(key, value); }
     function storageRemove(key) { storageAPI.removeItem(key); }
-    function localModeLabel() { return storageAPI.available ? 'Local only' : 'Session only'; }
+    function localModeLabel() { return 'IndexedDB / Disk'; }
     function localModeDetail() {
-      return storageAPI.available
-        ? 'API sync is optional. JSON import/export works without cookies or extensions.'
-        : 'Browser storage is unavailable here. Data stays in memory only until this tab closes, so export JSON before leaving.';
+      return 'Data is stored securely in IndexedDB and optionally synced to the local Nova server JSON files.';
     }
 
     // ── State ─────────────────────────────────────────────────────────────────────
@@ -2901,39 +2883,80 @@
     }
 
     // ── Local storage ─────────────────────────────────────────────────────────────
-    function saveLocal() {
-      storageSet(LS_ISSUES, JSON.stringify(issues));
-      storageSet(LS_CATS, JSON.stringify(categories));
-      storageSet(LS_STATS, JSON.stringify(statuses));
-      storageSet(LS_SEVS, JSON.stringify(severities));
-      storageSet(LS_EFFS, JSON.stringify(efforts));
-      storageSet(LS_EXPORT_DEST, exportDestination);
+    async function getPayload(key) {
+      let raw = await performLocalApiLoad(key);
+      if (!raw) raw = await idbLoad(key);
+      if (raw && currentKey) {
+        try { raw = await decryptData(raw, currentKey); } 
+        catch (e) { console.error('Decryption failed for key:', key); return null; }
+      }
+      return raw;
     }
-    function loadLocal() {
+
+    async function setPayload(key, plaintext) {
+      let payload = plaintext;
+      if (currentKey) payload = await encryptData(plaintext, currentKey);
+      await idbSave(key, payload);
+      await performLocalApiSave(key, payload);
+    }
+
+    async function saveLocal() {
+      // Notice: Now completely asynchronous. Callers might not block on this
+      // but it will quickly write to IDB and eventually write to the API.
+      setSyncState('saving', 'Saving local...');
+      await Promise.all([
+        setPayload(LS_ISSUES, JSON.stringify(issues)),
+        setPayload(LS_CATS, JSON.stringify(categories)),
+        setPayload(LS_STATS, JSON.stringify(statuses)),
+        setPayload(LS_SEVS, JSON.stringify(severities)),
+        setPayload(LS_EFFS, JSON.stringify(efforts))
+      ]);
+      storageSet(LS_EXPORT_DEST, exportDestination);
+      setSyncState('synced', 'Local check Ok');
+    }
+
+    async function loadLocalCore() {
       try {
-        const i = storageGet(LS_ISSUES);
-        const c = storageGet(LS_CATS);
-        const s = storageGet(LS_STATS);
+        const [i, c, s, sv, ef] = await Promise.all([
+          getPayload(LS_ISSUES),
+          getPayload(LS_CATS),
+          getPayload(LS_STATS),
+          getPayload(LS_SEVS),
+          getPayload(LS_EFFS)
+        ]);
         issues = i ? JSON.parse(i) : [];
         categories = c ? JSON.parse(c) : defaultCategories();
         statuses = s ? JSON.parse(s) : defaultStatuses();
-        const sv = storageGet(LS_SEVS);
-        const ef = storageGet(LS_EFFS);
-        const ex = storageGet(LS_EXPORT_DEST);
         severities = sv ? JSON.parse(sv) : DEFAULT_SEVERITIES.map(x => ({ ...x }));
         efforts = ef ? JSON.parse(ef) : DEFAULT_EFFORTS.map(x => ({ ...x }));
+        
+        const ex = storageGet(LS_EXPORT_DEST);
         exportDestination = ex === 'clipboard' ? 'clipboard' : 'file';
+
         if (issues.length) {
           const maxN = Math.max(...issues.map(x => { const m = x.id?.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; }));
           nextId = maxN + 1;
         }
       } catch (e) {
+        console.error('Error in loadLocalCore', e);
         issues = []; categories = defaultCategories(); statuses = defaultStatuses();
         severities = DEFAULT_SEVERITIES.map(x => ({ ...x }));
         efforts = DEFAULT_EFFORTS.map(x => ({ ...x }));
         exportDestination = 'file';
       }
     }
+    
+    // Check if the IndexedDB looks like it has encrypted data
+    async function checkEncryptionStatus() {
+       let sample = await performLocalApiLoad(LS_ISSUES);
+       if (!sample) sample = await idbLoad(LS_ISSUES);
+       if (sample && sample.includes('"enc":true')) {
+          isEncryptedMode = true;
+          return true;
+       }
+       return false;
+    }
+
     function loadApiConfig() {
       apiUrl = storageGet(LS_API_URL) || '';
       apiKey = storageGet(LS_API_KEY) || '';
@@ -2948,10 +2971,10 @@
       storageSet(LS_API_SHA, sha);
     }
 
-    // keep saveData as the combined save: local + trigger API if configured
     function saveData(triggerApi = true) {
-      saveLocal();
-      if (triggerApi && apiUrl && apiKey) apiSave();
+      saveLocal().then(() => {
+         if (triggerApi && apiUrl && apiKey) apiSave();
+      }).catch(console.error);
     }
 
     // ── API Sync helpers ────────────────────────────────────────────────────────
@@ -4538,22 +4561,87 @@
 
     // ── Init ───────────────────────────────────────────────────────────────────────
     document.getElementById('search').addEventListener('input', debounce(renderTable, 120));
-    loadLocal();
-    loadApiConfig();
-    renderSidebarNav();
-    updateCounts();
-    updateFilterOptions();
-    updateHideDoneButton();
-    renderTable();
-    updateTopbarActions();
-    syncResponsiveLayout();
-
-    if (apiUrl) {
-      setSyncState('saving', 'Connecting…');
-      apiLoad();
-    } else {
-      setSyncState('notoken', localModeLabel(), localModeDetail());
+    
+    async function initApp() {
+      // 1. Check if we need to decrypt
+      await openDB(); // ensure IDB opens
+      const isEnc = await checkEncryptionStatus();
+      
+      const sessionPwd = sessionStorage.getItem(SESSION_PWD_KEY);
+      if (isEnc && sessionPwd) {
+         try {
+           currentKey = await deriveKey(sessionPwd);
+           await loadLocalCore();
+           finishInit();
+           return;
+         } catch(e) {
+           // Password invalid, fall through to prompt
+         }
+      }
+      
+      if (isEnc) {
+         // Show password modal
+         document.getElementById('password-modal').classList.remove('hidden');
+         document.getElementById('password-skip-btn').style.display = 'inline-block';
+         document.getElementById('unlock-password').focus();
+      } else {
+         // Not encrypted, or fresh DB
+         // Show prompt if user wants to setup encryption?
+         document.getElementById('password-modal').classList.remove('hidden');
+         document.getElementById('password-modal-title').textContent = 'Initial Setup (Optional)';
+         document.getElementById('password-modal-desc').textContent = 'Set an optional password to encrypt your local database. Leave blank or skip to remain unencrypted.';
+         document.getElementById('password-skip-btn').style.display = 'inline-block';
+         document.getElementById('unlock-password').focus();
+      }
     }
+
+    async function submitPassword() {
+      const pwd = document.getElementById('unlock-password').value;
+      if (!pwd) {
+         skipPassword();
+         return;
+      }
+      try {
+         currentKey = await deriveKey(pwd);
+         await loadLocalCore();
+         // If we successfully loaded, and we are in setup mode (isEnc=false), it's fine.
+         // If we are in unlock mode (isEnc=true), this proves the password works.
+         sessionStorage.setItem(SESSION_PWD_KEY, pwd);
+         document.getElementById('password-modal').classList.add('hidden');
+         document.getElementById('unlock-error').style.display = 'none';
+         finishInit();
+      } catch (e) {
+         document.getElementById('unlock-error').style.display = 'block';
+      }
+    }
+
+    async function skipPassword() {
+      currentKey = null;
+      document.getElementById('password-modal').classList.add('hidden');
+      await loadLocalCore();
+      finishInit();
+    }
+
+    function finishInit() {
+      loadApiConfig();
+      renderSidebarNav();
+      updateCounts();
+      updateFilterOptions();
+      updateHideDoneButton();
+      renderTable();
+      updateTopbarActions();
+      syncResponsiveLayout();
+
+      if (apiUrl) {
+        setSyncState('saving', 'Connecting…');
+        apiLoad();
+      } else {
+        setSyncState('notoken', localModeLabel(), localModeDetail());
+      }
+    }
+
+    // Start
+    initApp();
   </script>
 </body>
 
