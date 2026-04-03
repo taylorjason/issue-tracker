@@ -44,7 +44,7 @@ for (const key of ALLOWED_KEYS) {
 }
 console.log(`[Nova] Loaded ${loadedCount} key(s) from ${DATA_DIR}`)
 
-// ── Read and patch index.html ─────────────────────────────────────────────────
+// ── Read and patch index.html dynamically ─────────────────────────────────────
 const LOCALHOST_CSP = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
@@ -57,15 +57,16 @@ const LOCALHOST_CSP = [
   `object-src 'none'`,
 ].join('; ')
 
-const indexPath = path.join(DIST_DIR, 'index.html')
-let INDEX_HTML = ''
-if (fs.existsSync(indexPath)) {
+function getIndexHtml() {
+  const indexPath = path.join(DIST_DIR, 'index.html')
+  if (!fs.existsSync(indexPath)) return null
+  
   let raw = fs.readFileSync(indexPath, 'utf8')
-
+  
   // 1. Inject session token
   const tokenMeta = `<meta name="nova-token" content="${TOKEN}" />`
   raw = raw.replace(/(<head[^>]*>)/, `$1\n  ${tokenMeta}`)
-
+  
   // 2. Patch CSP
   const cspMetaRe = /<meta[^>]+http-equiv\s*=\s*["']Content-Security-Policy["'][^>]*>/i
   const cspMeta   = `<meta http-equiv="Content-Security-Policy" content="${LOCALHOST_CSP}">`
@@ -74,13 +75,11 @@ if (fs.existsSync(indexPath)) {
   } else {
     raw = raw.replace(/(<head[^>]*>)/i, `$1\n  ${cspMeta}`)
   }
-
-  INDEX_HTML = raw
-  console.log(`[Nova] Serving static files from: ${path.resolve(DIST_DIR)}`)
-  console.log(`[Nova] CSP: ${LOCALHOST_CSP}`)
-} else {
-  console.warn(`[Nova] ${indexPath} not found.`)
+  
+  return raw
 }
+console.log(`[Nova] Serving static files from: ${path.resolve(DIST_DIR)}`)
+console.log(`[Nova] CSP: ${LOCALHOST_CSP}`)
 
 
 // ── MIME type map ─────────────────────────────────────────────────────────────
@@ -131,8 +130,9 @@ const server = http.createServer((req, res) => {
 
   // ── Static: root ───────────────────────────────────────────────────────────
   if (pathname === '/' || pathname === '/index.html') {
-    if (INDEX_HTML) {
-      sendText(res, 200, 'text/html; charset=utf-8', INDEX_HTML)
+    const htmlContent = getIndexHtml()
+    if (htmlContent) {
+      sendText(res, 200, 'text/html; charset=utf-8', htmlContent)
     } else {
       sendText(res, 503, 'text/plain', "index.html not found.")
     }

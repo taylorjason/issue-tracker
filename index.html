@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.0.0(12)</title>
+  <title>Issue Tracker v1.0.0(13)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -19,6 +19,7 @@
       --accent: #6c8eff;
       --accent2: #4a6adf;
       --red: #f54242;
+      --green: #3ecf8e;
       --mono: ui-monospace, 'Cascadia Code', 'Fira Code', Menlo, Consolas, 'Liberation Mono', monospace;
       --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       --r: 6px;
@@ -1979,14 +1980,28 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.0.0 (Build 12)</div>
-      <div class="sb-bot">
-        <div style="margin-bottom:6px;"><span id="total-count">0</span> issues total</div>
+        v1.0.0 (Build 13)</div>
+
+      <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
+
+        <!-- Local Sync Bar -->
+        <div class="sync-bar" id="local-sync-bar" style="justify-content:flex-start;">
+          <span id="local-sync-dot" class="sync-dot error" style="background:var(--red);box-shadow:0 0 4px var(--red);"></span>
+          <span class="sync-label" id="local-sync-label">Nova Local API: Unchecked</span>
+          <button class="icon-btn" style="margin-left:auto;padding:2px;font-size:10px" onclick="forceLocalSync()" title="Force Sync to Nova Server">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+          </button>
+        </div>
+
+        <!-- Remote Sync Bar -->
         <div class="sync-bar" id="sync-bar">
           <span class="sync-dot notoken" id="sync-dot"></span>
-          <span class="sync-label" id="sync-label">No sync</span>
-          <button class="sync-retry hidden" id="sync-force-btn" onclick="forceSync()">Sync</button>
+          <span class="sync-label" id="sync-label">Vercel API: Unconfigured</span>
           <button class="sync-retry hidden" id="sync-retry-btn" onclick="manualRetry()">Retry</button>
+          <button class="icon-btn hidden" style="margin-left:auto;padding:2px;font-size:10px" id="sync-force-btn" title="Force Vercel API Sync" onclick="forceSync()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+          </button>
         </div>
         <div class="sync-error-detail hidden" id="sync-error-detail"></div>
 
@@ -2396,17 +2411,20 @@
       </div>
       <div class="mbody" style="gap: 12px;">
         <div style="font-size: 13px; color: var(--t2); margin-bottom: 4px;">
-          You are importing <strong id="import-modal-count" style="color: var(--text); font-weight: 600;">0</strong> issues. How would you like to handle them?
+          You are importing <strong id="import-modal-count" style="color: var(--text); font-weight: 600;">0</strong>
+          issues. How would you like to handle them?
         </div>
-        
+
         <button class="import-opt-btn" onclick="executeImport('merge')">
           <div class="iopt-title">Merge Data (Recommended)</div>
-          <div class="iopt-desc">Duplicates overwrite existing issues, and new ones are appended. Categories and metadata are merged safely.</div>
+          <div class="iopt-desc">Duplicates overwrite existing issues, and new ones are appended. Categories and
+            metadata are merged safely.</div>
         </button>
 
         <button class="import-opt-btn" onclick="executeImport('append_new')">
           <div class="iopt-title">Append as New</div>
-          <div class="iopt-desc">Assigns fresh, unique IDs to all imported issues. Existing context or links to these issues may break.</div>
+          <div class="iopt-desc">Assigns fresh, unique IDs to all imported issues. Existing context or links to these
+            issues may break.</div>
         </button>
 
         <button class="import-opt-btn danger" onclick="executeImport('replace')">
@@ -2461,27 +2479,191 @@
           </div>
           <div class="conflict-ver">
             <div class="conflict-ver-title">☁ Server Version (Remote)</div>
-        <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use Server Version</button>
-        <button class="btn btn-primary" onclick="resolveConflict('local')">Keep My Version (Overwrite)</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-  <!-- Export Fallback Modal -->
-  <div class="overlay hidden" id="export-fallback-modal" onclick="if(event.target===this)closeExportFallback()">
-          <textarea class="export-fallback-text" id="export-fallback-text" spellcheck="false" readonly></textarea>
+            <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use Server Version</button>
+            <button class="btn btn-primary" onclick="resolveConflict('local')">Keep My Version (Overwrite)</button>
+          </div>
         </div>
       </div>
+
+      <div class="toast" id="toast"></div>
+
+      <!-- Export Fallback Modal -->
+      <div class="overlay hidden" id="export-fallback-modal" onclick="if(event.target===this)closeExportFallback()">
+        <textarea class="export-fallback-text" id="export-fallback-text" spellcheck="false" readonly></textarea>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="selectExportFallbackText()">Select All</button>
+      <button class="btn btn-primary" onclick="closeExportFallback()">Close</button>
+    </div>
+  </div>
+  </div>
+
+  <div class="overlay hidden" id="password-modal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="mhead">
+        <div class="mtitle" id="password-modal-title">Unlock Storage</div>
+      </div>
+      <div class="mbody">
+        <p style="color: var(--t2); font-size: 13px; margin-bottom: 5px;" id="password-modal-desc">
+          Enter your password to decrypt and load your database.
+        </p>
+        <div class="field">
+          <input type="password" id="unlock-password" class="inp" placeholder="Password..."
+            onkeypress="if(event.key==='Enter')submitPassword()">
+        </div>
+        <div id="unlock-error" style="color: var(--red); font-size: 12px; margin-top: 5px; display: none;">Incorrect
+          password or corrupted data.</div>
+      </div>
       <div class="mfoot">
-        <button class="btn btn-ghost" onclick="selectExportFallbackText()">Select All</button>
-        <button class="btn btn-primary" onclick="closeExportFallback()">Close</button>
+        <button class="btn btn-ghost" id="password-skip-btn" onclick="skipPassword()" style="display:none;">Skip /
+          Continue Unencrypted</button>
+        <button class="btn btn-primary" onclick="submitPassword()">Unlock</button>
       </div>
     </div>
   </div>
 
   <script>
+    // ── Crypto & IndexedDB ────────────────────────────────────────────────────────
+    let currentKey = null; // The derived CryptoKey for AES-GCM
+    let isEncryptedMode = false;
+
+    // Check if user set a password in sessionStorage
+    const SESSION_PWD_KEY = 'nova_session_pwd';
+
+    async function deriveKey(password, saltHex = 'a1b2c3d4e5f60718293a4b5c6d7e8f90') {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']
+      );
+      const salt = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: salt, iterations: 210000, hash: 'SHA-256' },
+        keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptData(data, key) {
+      if (!key) return data;
+      const enc = new TextEncoder();
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv }, key, enc.encode(data)
+      );
+      const ivBase64 = btoa(String.fromCharCode(...iv));
+      const dataBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+      return JSON.stringify({ iv: ivBase64, data: dataBase64, enc: true });
+    }
+
+    async function decryptData(encryptedStr, key) {
+      if (!key) return encryptedStr;
+      try {
+        const payload = JSON.parse(encryptedStr);
+        if (!payload.enc) return encryptedStr;
+        const iv = new Uint8Array(atob(payload.iv).split('').map(c => c.charCodeAt(0)));
+        const dataBytes = new Uint8Array(atob(payload.data).split('').map(c => c.charCodeAt(0)));
+        const decrypted = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv }, key, dataBytes
+        );
+        const dec = new TextDecoder();
+        return dec.decode(decrypted);
+      } catch (e) {
+        if (e.name === 'OperationError') throw new Error('Invalid password or corrupted data');
+        return encryptedStr;
+      }
+    }
+
+    const DB_NAME = "NovaDB";
+    const STORE_NAME = "novaStore";
+
+    async function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function idbSave(key, value) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function idbLoad(key) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function getNovaToken() {
+      const meta = document.querySelector('meta[name="nova-token"]');
+      return meta ? meta.getAttribute('content') : '';
+    }
+
+    async function performLocalApiSave(key, payloadStr) {
+      try {
+        await fetch(`http://127.0.0.1:1515/api/${key}`, {
+          method: 'POST',
+          headers: { 'X-Nova-Token': getNovaToken() },
+          body: payloadStr
+        });
+        updateLocalSyncUI(true);
+      } catch (e) {
+        updateLocalSyncUI(false);
+      }
+    }
+
+    async function performLocalApiLoad(key) {
+      try {
+        const res = await fetch(`http://127.0.0.1:1515/api/${key}`, {
+          headers: { 'X-Nova-Token': getNovaToken() }
+        });
+        if (res.ok) {
+          updateLocalSyncUI(true);
+          if (res.status !== 204) return await res.text();
+        } else {
+          updateLocalSyncUI(false);
+        }
+      } catch (e) {
+        updateLocalSyncUI(false);
+      }
+      return null;
+    }
+
+    function updateLocalSyncUI(success) {
+      const dot = document.getElementById('local-sync-dot');
+      const label = document.getElementById('local-sync-label');
+      if (dot && label) {
+        if (success) {
+          dot.className = 'sync-dot synced';
+          dot.style.background = 'var(--green)';
+          dot.style.boxShadow = '0 0 4px var(--green)';
+          label.textContent = 'Nova Local API: Connected';
+        } else {
+          dot.className = 'sync-dot error';
+          dot.style.background = 'var(--red)';
+          dot.style.boxShadow = '0 0 4px var(--red)';
+          label.textContent = 'Nova Local API: Offline';
+        }
+      }
+    }
+
+    async function forceLocalSync() {
+      await saveLocal();
+    }
+
     // ── Palette ───────────────────────────────────────────────────────────────────
     const PALETTE = [
       { bg: 'rgba(88,88,110,.22)', fg: '#9898b8', name: 'Gray' },
@@ -2868,7 +3050,7 @@
       const detEl = document.getElementById('sync-error-detail');
       if (!dot) return;
       dot.className = 'sync-dot ' + state;
-      lbl.textContent = label || { notoken: 'Local only', synced: 'Synced', saving: 'Saving…', offline: 'Offline', error: 'Sync error' }[state] || state;
+      lbl.textContent = label || { notoken: 'Vercel API: Unconfigured', synced: 'Vercel API: Synced', saving: 'Vercel API: Saving…', offline: 'Vercel API: Offline', error: 'Vercel API: Sync error' }[state] || state;
       if (force) force.classList.toggle('hidden', !apiUrl);
       retry.classList.toggle('hidden', state !== 'offline' && state !== 'error');
       if (detEl) {
@@ -2887,7 +3069,7 @@
       let raw = await performLocalApiLoad(key);
       if (!raw) raw = await idbLoad(key);
       if (raw && currentKey) {
-        try { raw = await decryptData(raw, currentKey); } 
+        try { raw = await decryptData(raw, currentKey); }
         catch (e) { console.error('Decryption failed for key:', key); return null; }
       }
       return raw;
@@ -2903,7 +3085,6 @@
     async function saveLocal() {
       // Notice: Now completely asynchronous. Callers might not block on this
       // but it will quickly write to IDB and eventually write to the API.
-      setSyncState('saving', 'Saving local...');
       await Promise.all([
         setPayload(LS_ISSUES, JSON.stringify(issues)),
         setPayload(LS_CATS, JSON.stringify(categories)),
@@ -2912,7 +3093,6 @@
         setPayload(LS_EFFS, JSON.stringify(efforts))
       ]);
       storageSet(LS_EXPORT_DEST, exportDestination);
-      setSyncState('synced', 'Local check Ok');
     }
 
     async function loadLocalCore() {
@@ -2929,7 +3109,7 @@
         statuses = s ? JSON.parse(s) : defaultStatuses();
         severities = sv ? JSON.parse(sv) : DEFAULT_SEVERITIES.map(x => ({ ...x }));
         efforts = ef ? JSON.parse(ef) : DEFAULT_EFFORTS.map(x => ({ ...x }));
-        
+
         const ex = storageGet(LS_EXPORT_DEST);
         exportDestination = ex === 'clipboard' ? 'clipboard' : 'file';
 
@@ -2945,16 +3125,16 @@
         exportDestination = 'file';
       }
     }
-    
+
     // Check if the IndexedDB looks like it has encrypted data
     async function checkEncryptionStatus() {
-       let sample = await performLocalApiLoad(LS_ISSUES);
-       if (!sample) sample = await idbLoad(LS_ISSUES);
-       if (sample && sample.includes('"enc":true')) {
-          isEncryptedMode = true;
-          return true;
-       }
-       return false;
+      let sample = await performLocalApiLoad(LS_ISSUES);
+      if (!sample) sample = await idbLoad(LS_ISSUES);
+      if (sample && sample.includes('"enc":true')) {
+        isEncryptedMode = true;
+        return true;
+      }
+      return false;
     }
 
     function loadApiConfig() {
@@ -2973,7 +3153,7 @@
 
     function saveData(triggerApi = true) {
       saveLocal().then(() => {
-         if (triggerApi && apiUrl && apiKey) apiSave();
+        if (triggerApi && apiUrl && apiKey) apiSave();
       }).catch(console.error);
     }
 
@@ -3160,7 +3340,7 @@
 
     function skipSync() {
       hideSetupScreen();
-      setSyncState('notoken', localModeLabel(), localModeDetail());
+      setSyncState('notoken');
     }
 
     function disconnectSync() {
@@ -4561,57 +4741,57 @@
 
     // ── Init ───────────────────────────────────────────────────────────────────────
     document.getElementById('search').addEventListener('input', debounce(renderTable, 120));
-    
+
     async function initApp() {
       // 1. Check if we need to decrypt
       await openDB(); // ensure IDB opens
       const isEnc = await checkEncryptionStatus();
-      
+
       const sessionPwd = sessionStorage.getItem(SESSION_PWD_KEY);
       if (isEnc && sessionPwd) {
-         try {
-           currentKey = await deriveKey(sessionPwd);
-           await loadLocalCore();
-           finishInit();
-           return;
-         } catch(e) {
-           // Password invalid, fall through to prompt
-         }
+        try {
+          currentKey = await deriveKey(sessionPwd);
+          await loadLocalCore();
+          finishInit();
+          return;
+        } catch (e) {
+          // Password invalid, fall through to prompt
+        }
       }
-      
+
       if (isEnc) {
-         // Show password modal
-         document.getElementById('password-modal').classList.remove('hidden');
-         document.getElementById('password-skip-btn').style.display = 'inline-block';
-         document.getElementById('unlock-password').focus();
+        // Show password modal
+        document.getElementById('password-modal').classList.remove('hidden');
+        document.getElementById('password-skip-btn').style.display = 'inline-block';
+        document.getElementById('unlock-password').focus();
       } else {
-         // Not encrypted, or fresh DB
-         // Show prompt if user wants to setup encryption?
-         document.getElementById('password-modal').classList.remove('hidden');
-         document.getElementById('password-modal-title').textContent = 'Initial Setup (Optional)';
-         document.getElementById('password-modal-desc').textContent = 'Set an optional password to encrypt your local database. Leave blank or skip to remain unencrypted.';
-         document.getElementById('password-skip-btn').style.display = 'inline-block';
-         document.getElementById('unlock-password').focus();
+        // Not encrypted, or fresh DB
+        // Show prompt if user wants to setup encryption?
+        document.getElementById('password-modal').classList.remove('hidden');
+        document.getElementById('password-modal-title').textContent = 'Initial Setup (Optional)';
+        document.getElementById('password-modal-desc').textContent = 'Set an optional password to encrypt your local database. Leave blank or skip to remain unencrypted.';
+        document.getElementById('password-skip-btn').style.display = 'inline-block';
+        document.getElementById('unlock-password').focus();
       }
     }
 
     async function submitPassword() {
       const pwd = document.getElementById('unlock-password').value;
       if (!pwd) {
-         skipPassword();
-         return;
+        skipPassword();
+        return;
       }
       try {
-         currentKey = await deriveKey(pwd);
-         await loadLocalCore();
-         // If we successfully loaded, and we are in setup mode (isEnc=false), it's fine.
-         // If we are in unlock mode (isEnc=true), this proves the password works.
-         sessionStorage.setItem(SESSION_PWD_KEY, pwd);
-         document.getElementById('password-modal').classList.add('hidden');
-         document.getElementById('unlock-error').style.display = 'none';
-         finishInit();
+        currentKey = await deriveKey(pwd);
+        await loadLocalCore();
+        // If we successfully loaded, and we are in setup mode (isEnc=false), it's fine.
+        // If we are in unlock mode (isEnc=true), this proves the password works.
+        sessionStorage.setItem(SESSION_PWD_KEY, pwd);
+        document.getElementById('password-modal').classList.add('hidden');
+        document.getElementById('unlock-error').style.display = 'none';
+        finishInit();
       } catch (e) {
-         document.getElementById('unlock-error').style.display = 'block';
+        document.getElementById('unlock-error').style.display = 'block';
       }
     }
 
@@ -4636,7 +4816,7 @@
         setSyncState('saving', 'Connecting…');
         apiLoad();
       } else {
-        setSyncState('notoken', localModeLabel(), localModeDetail());
+        setSyncState('notoken');
       }
     }
 

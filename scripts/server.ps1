@@ -48,15 +48,21 @@ foreach ($key in $AllowedKeys) {
 Write-Host "[Nova] Loaded $(($Data.Values | Where-Object { $null -ne $_ }).Count) key(s) from $DataDir"
 
 $LocalhostCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*; base-uri 'none'; form-action 'none'; object-src 'none'"
-$indexPath = Join-Path $DistDir "index.html"
-$IndexHtml = ""
-if (Test-Path $indexPath) {
-    $raw     = Get-Content $indexPath -Raw -Encoding UTF8
 
+Write-Host "[Nova] Serving static files from: $(Resolve-Path $DistDir)"
+Write-Host "[Nova] CSP: $LocalhostCsp"
+
+function Get-IndexHtml {
+    $indexPath = Join-Path $DistDir "index.html"
+    if (-not (Test-Path $indexPath)) {
+        return $null
+    }
+    
+    $raw = Get-Content $indexPath -Raw -Encoding UTF8
     $metaTag = '<meta name="nova-token" content="' + $Token + '" />'
-    $raw     = $raw -replace '(<head[^>]*>)', "`$1`n  $metaTag"
+    $raw = $raw -replace '(<head[^>]*>)', "`$1`n  $metaTag"
 
-    $cspMeta    = '<meta http-equiv="Content-Security-Policy" content="' + $LocalhostCsp + '">'
+    $cspMeta = '<meta http-equiv="Content-Security-Policy" content="' + $LocalhostCsp + '">'
     $cspPattern = '<meta[^>]+http-equiv\s*=\s*[''"]Content-Security-Policy[''"][^>]*>'
     if ($raw -match $cspPattern) {
         $raw = $raw -replace $cspPattern, $cspMeta
@@ -64,11 +70,7 @@ if (Test-Path $indexPath) {
         $raw = $raw -replace '(<head[^>]*>)', "`$1`n  $cspMeta"
     }
 
-    $IndexHtml = $raw
-    Write-Host "[Nova] Serving static files from: $(Resolve-Path $DistDir)"
-    Write-Host "[Nova] CSP: $LocalhostCsp"
-} else {
-    Write-Warning "[Nova] $indexPath not found."
+    return $raw
 }
 
 $MimeTypes = @{
@@ -135,8 +137,9 @@ while ($listener.IsListening) {
         }
 
         if ($path -eq '/' -or $path -eq '/index.html') {
-            if ($IndexHtml) {
-                Send-Text $res 200 'text/html; charset=utf-8' $IndexHtml
+            $htmlContent = Get-IndexHtml
+            if ($null -ne $htmlContent) {
+                Send-Text $res 200 'text/html; charset=utf-8' $htmlContent
             } else {
                 Send-Text $res 503 'text/plain' 'index.html not found'
             }
