@@ -98,7 +98,14 @@ const MIME = {
 // ── Response helpers ──────────────────────────────────────────────────────────
 function sendText(res, status, contentType, body) {
   const buf = Buffer.from(body, 'utf8')
-  res.writeHead(status, { 'Content-Type': contentType, 'Content-Length': buf.length })
+  res.writeHead(status, {
+    'Content-Type':                contentType,
+    'Content-Length':              buf.length,
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Nova-Token',
+    'Cache-Control':               'no-store, no-cache, must-revalidate, proxy-revalidate',
+  })
   res.end(buf)
 }
 
@@ -107,7 +114,12 @@ function sendJson(res, status, obj) {
 }
 
 function sendBytes(res, status, contentType, buf) {
-  res.writeHead(status, { 'Content-Type': contentType, 'Content-Length': buf.length })
+  res.writeHead(status, {
+    'Content-Type':                contentType,
+    'Content-Length':              buf.length,
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control':               'public, max-age=3600',
+  })
   res.end(buf)
 }
 
@@ -123,7 +135,12 @@ const server = http.createServer((req, res) => {
 
   // ── OPTIONS preflight ──────────────────────────────────────────────────────
   if (req.method === 'OPTIONS') {
-    res.writeHead(204)
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin':  '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Nova-Token',
+      'Access-Control-Max-Age':       '86400',
+    })
     res.end()
     return
   }
@@ -165,6 +182,7 @@ const server = http.createServer((req, res) => {
   if (pathname.startsWith('/api/')) {
     const reqToken = req.headers['x-nova-token']
     if (reqToken !== TOKEN) {
+      console.warn(`[Nova] Unauthorized API request to "${pathname}" (token mismatch)`)
       sendJson(res, 401, { error: 'Unauthorized' })
       return
     }
@@ -184,9 +202,11 @@ const server = http.createServer((req, res) => {
     if (req.method === 'GET') {
       const val = data[apiKey]
       if (val == null) {
-        res.writeHead(204)
+        console.log(`[Nova] GET "${apiKey}" — No data on disk (204)`)
+        res.writeHead(204, { 'Access-Control-Allow-Origin': '*' })
         res.end()
       } else {
+        console.log(`[Nova] GET "${apiKey}" — Serving ${val.length} bytes`)
         sendText(res, 200, 'application/json', val)
       }
       return
