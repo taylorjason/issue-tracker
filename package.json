@@ -1,6 +1,6 @@
 {
   "name": "issue-tracker-sync-api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Simple KV Sync API for the Issue Tracker",
   "dependencies": {
     "@vercel/kv": "^3.0.0"
@@ -12,5 +12,5 @@
     "prepare": "husky",
     "dev:nova": "bash scripts/start_nova.sh"
   },
-  "build": 14
+  "build": 16
 }
