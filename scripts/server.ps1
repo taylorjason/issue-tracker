@@ -89,6 +89,13 @@ function Send-Text {
     param($res, [int]$status = 200, [string]$contentType = 'text/plain', [string]$body = '')
     $res.StatusCode  = $status
     $res.ContentType = $contentType
+    
+    # ── CORS & Cache Headers ──
+    $res.AddHeader("Access-Control-Allow-Origin", "*")
+    $res.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    $res.AddHeader("Access-Control-Allow-Headers", "Content-Type, X-Nova-Token")
+    $res.AddHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+    
     $bytes           = [System.Text.Encoding]::UTF8.GetBytes($body)
     $res.ContentLength64 = $bytes.Length
     $res.OutputStream.Write($bytes, 0, $bytes.Length)
@@ -99,6 +106,11 @@ function Send-Bytes {
     param($res, [int]$status = 200, [string]$contentType = 'application/octet-stream', [byte[]]$bytes)
     $res.StatusCode  = $status
     $res.ContentType = $contentType
+    
+    # ── CORS & Cache Headers (Static Assets) ──
+    $res.AddHeader("Access-Control-Allow-Origin", "*")
+    $res.AddHeader("Cache-Control", "public, max-age=3600")
+
     $res.ContentLength64 = $bytes.Length
     $res.OutputStream.Write($bytes, 0, $bytes.Length)
     $res.OutputStream.Close()
@@ -132,6 +144,10 @@ while ($listener.IsListening) {
     try {
         if ($req.HttpMethod -eq 'OPTIONS') {
             $res.StatusCode = 204
+            $res.AddHeader("Access-Control-Allow-Origin", "*")
+            $res.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            $res.AddHeader("Access-Control-Allow-Headers", "Content-Type, X-Nova-Token")
+            $res.AddHeader("Access-Control-Max-Age", "86400")
             $res.OutputStream.Close()
             continue
         }
@@ -163,6 +179,7 @@ while ($listener.IsListening) {
         if ($path.StartsWith('/api/')) {
             $reqToken = $req.Headers['X-Nova-Token']
             if ($reqToken -ne $Token) {
+                Write-Warning "[Nova] Unauthorized API request to '$path' (token mismatch)"
                 Send-Text $res 401 'application/json' '{"error":"Unauthorized"}'
                 continue
             }
@@ -182,9 +199,12 @@ while ($listener.IsListening) {
             if ($req.HttpMethod -eq 'GET') {
                 $val = $Data[$apiKey]
                 if ($null -eq $val) {
+                    Write-Host "[Nova] GET '$apiKey' — No data on disk (204)"
                     $res.StatusCode = 204
+                    $res.AddHeader("Access-Control-Allow-Origin", "*")
                     $res.OutputStream.Close()
                 } else {
+                    Write-Host "[Nova] GET '$apiKey' — Serving $($val.Length) bytes"
                     Send-Text $res 200 'application/json' $val
                 }
 
@@ -212,6 +232,7 @@ while ($listener.IsListening) {
                     $Data[$apiKey] = $body
                     $filePath      = Join-Path $DataDir "$apiKey.json"
                     Set-Content -Path $filePath -Value $body -Encoding UTF8 -NoNewline
+                    Write-Host "[Nova] POST '$apiKey' — Saved $($body.Length) bytes"
                     Send-Text $res 200 'application/json' '{"ok":true}'
                 } catch {
                     Write-Warning "[Nova] POST write error for key '$apiKey': $_"

@@ -5,7 +5,7 @@ $scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot   = Resolve-Path (Join-Path $scriptDir "..")
 $serverScript = Join-Path $scriptDir "server.ps1"
 
-$Port = 1414
+$Port = 1515
 
 # ── Start combined server in a new PowerShell window ─────────────────────────
 Write-Host "[Nova Launcher] Starting server on port $Port..."

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.1.0(16)</title>
+  <title>Issue Tracker v1.1.0(18)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2010,7 +2010,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.1.0 (Build 16)</div>
+        v1.1.0 (Build 18)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -3112,8 +3112,8 @@
       let raw = await performLocalApiLoad(key);
       if (!raw) raw = await idbLoad(key);
       if (raw && currentKey) {
-        try { raw = await decryptData(raw, currentKey); }
-        catch (e) { console.error('Decryption failed for key:', key); return null; }
+        // If decryption fails, we want to know (e.g. wrong password), so we don't catch here.
+        raw = await decryptData(raw, currentKey);
       }
       return raw;
     }
@@ -4866,7 +4866,9 @@
         document.getElementById('unlock-error').style.display = 'none';
         finishInit();
       } catch (e) {
+        console.error('Unlock failed:', e);
         document.getElementById('unlock-error').style.display = 'block';
+        document.getElementById('unlock-error').textContent = 'Incorrect password or corrupted data.';
       }
     }
 
