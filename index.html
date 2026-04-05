@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.0.0(13)</title>
+  <title>Issue Tracker v1.0.0(14)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -14,8 +14,8 @@
       --border: #2e2e36;
       --b2: #3a3a44;
       --text: #e8e8f0;
-      --t2: #9898aa;
-      --t3: #5a5a6a;
+      --t2: #bcbccd;
+      --t3: #8a8a9e;
       --accent: #6c8eff;
       --accent2: #4a6adf;
       --red: #f54242;
@@ -38,7 +38,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.5;
     }
 
@@ -99,8 +99,8 @@
 
     /* ── Sidebar ── */
     .sb {
-      width: 224px;
-      min-width: 224px;
+      width: 185px;
+      min-width: 185px;
       background: var(--surface);
       border-right: 1px solid var(--border);
       display: flex;
@@ -147,7 +147,7 @@
 
     .sb-lbl {
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 500;
       color: var(--t3);
       letter-spacing: .1em;
@@ -185,7 +185,7 @@
     .nav-cnt {
       margin-left: auto;
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       color: var(--t3);
       background: var(--s3);
       padding: 1px 5px;
@@ -202,7 +202,7 @@
       padding: 10px 12px;
       border-top: 1px solid var(--border);
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       color: var(--t3);
     }
 
@@ -339,12 +339,36 @@
       pointer-events: none;
     }
 
+    .srch-clear {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--t3);
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      width: 20px;
+      height: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      padding: 0;
+    }
+    .srch-clear:hover {
+      color: var(--text);
+      background: rgba(128,128,128,0.1);
+    }
+
     .srch {
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--r);
-      padding: 6px 9px 6px 30px;
+      padding: 6px 26px 6px 30px;
       color: var(--text);
       font-family: var(--sans);
       font-size: 13px;
@@ -426,7 +450,7 @@
       margin-bottom: 4px;
     }
 
-    .mfilter-clear {
+    .mfilter-clear, .mfilter-select-all {
       background: none;
       border: none;
       color: var(--accent);
@@ -434,6 +458,12 @@
       font-size: 11px;
       font-family: var(--mono);
       padding: 2px 4px;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+    .mfilter-clear:hover, .mfilter-select-all:hover {
+      opacity: 1;
+      text-decoration: underline;
     }
 
     .mfilter-option {
@@ -471,7 +501,7 @@
     .tbl th {
       text-align: left;
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 500;
       color: var(--t3);
       letter-spacing: .06em;
@@ -1980,7 +2010,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.0.0 (Build 13)</div>
+        v1.0.0 (Build 14)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2041,6 +2071,7 @@
                 <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
               </svg>
               <input class="srch" id="search" placeholder="Search…">
+              <button id="search-clear" class="srch-clear" onclick="clearSearch()" title="Clear search">×</button>
             </div>
             <div id="f-status" class="mfilter"></div>
             <div id="f-sev" class="mfilter"></div>
@@ -2706,6 +2737,7 @@
     const LS_SEVS = 'tracker_sevs_v1';
     const LS_EFFS = 'tracker_effs_v1';
     const LS_EXPORT_DEST = 'tracker_export_destination_v1';
+    const LS_FILTERS = 'tracker_filters_v1';
     const memoryStore = {};
     const storageAPI = (() => {
       try {
@@ -2742,7 +2774,18 @@
     let nextId = 1;
     let currentView = 'all';
     let lastIssueView = 'all';
-    const filterState = { status: [], sev: [], eff: [], cat: [], tag: [], blocked: [], hideDone: false };
+    const filterState = (() => {
+      const def = { status: [], sev: [], eff: [], cat: [], tag: [], blocked: [], hideDone: false };
+      const saved = storageGet(LS_FILTERS);
+      if (!saved) return def;
+      try {
+        return { ...def, ...JSON.parse(saved) };
+      } catch (e) { return def; }
+    })();
+
+    function saveFilters() {
+      storageSet(LS_FILTERS, JSON.stringify(filterState));
+    }
     let exportDestination = 'file';
     let sidebarCollapsed = false;
     let sidebarOpen = false;
@@ -3727,14 +3770,21 @@
     function renderMultiFilter(id, placeholder, options, values) {
       const el = document.getElementById(id);
       if (!el) return;
+      const menuId = id + '-menu';
+      const wasOpen = document.getElementById(menuId) && !document.getElementById(menuId).classList.contains('hidden');
       const selected = new Set(values);
       el.innerHTML = `
     <button type="button" class="fsel mfilter-btn${values.length ? ' has-value' : ''}" onclick="toggleFilterMenu('${id}')">
       <span>${esc(getFilterSummary(placeholder, options, values))}</span>
       <span class="mfilter-caret">▾</span>
     </button>
-    <div class="mfilter-menu hidden" id="${id}-menu">
-      <div class="mfilter-actions"><button type="button" class="mfilter-clear" onclick="clearFilter('${id}')">Clear</button></div>
+    <div class="mfilter-menu ${wasOpen ? '' : 'hidden'}" id="${menuId}" 
+      onclick="event.stopPropagation()"
+      onkeydown="if(event.key==='Enter'||event.key==='Escape'){this.classList.add('hidden');event.preventDefault();}">
+      <div class="mfilter-actions">
+        <button type="button" class="mfilter-select-all" onclick="selectAllFilter('${id}')">All</button>
+        <button type="button" class="mfilter-clear" onclick="clearFilter('${id}')">None</button>
+      </div>
       ${options.length ? options.map(opt => `
         <label class="mfilter-option">
           <input type="checkbox" data-value="${esc(opt.value)}" ${selected.has(opt.value) ? 'checked' : ''} onchange="toggleFilterValue('${id}', this.dataset.value)">
@@ -3742,6 +3792,16 @@
         </label>
       `).join('') : '<div class="mfilter-empty">No options yet.</div>'}
     </div>`;
+    }
+    function selectAllFilter(id) {
+      const menu = document.getElementById(id + '-menu');
+      if (!menu) return;
+      const values = Array.from(menu.querySelectorAll('input[type=\"checkbox\"]')).map(cb => cb.dataset.value);
+      const key = id.replace('f-', '');
+      filterState[key] = values;
+      updateFilterOptions();
+      saveFilters();
+      renderTable();
     }
     function toggleFilterMenu(id) {
       const menu = document.getElementById(id + '-menu');
@@ -3757,12 +3817,14 @@
       if (idx === -1) values.push(value);
       else values.splice(idx, 1);
       updateFilterOptions();
+      saveFilters();
       renderTable();
     }
     function clearFilter(id) {
       const key = id.replace('f-', '');
       filterState[key] = [];
       updateFilterOptions();
+      saveFilters();
       renderTable();
     }
     function getFilterValues(key) {
@@ -3775,6 +3837,7 @@
     function toggleHideDone() {
       filterState.hideDone = !filterState.hideDone;
       updateHideDoneButton();
+      saveFilters();
       renderTable();
     }
     function updateHideDoneButton() {
@@ -3833,9 +3896,11 @@
 
     function clearFilters() {
       document.getElementById('search').value = '';
+      if (document.getElementById('search-clear')) document.getElementById('search-clear').style.display = 'none';
       Object.keys(filterState).forEach(key => { filterState[key] = Array.isArray(filterState[key]) ? [] : false; });
       updateFilterOptions();
       updateHideDoneButton();
+      saveFilters();
       renderTable();
     }
 
@@ -4740,6 +4805,16 @@
     });
 
     // ── Init ───────────────────────────────────────────────────────────────────────
+    function clearSearch() {
+      const inp = document.getElementById('search');
+      inp.value = '';
+      document.getElementById('search-clear').style.display = 'none';
+      renderTable();
+      inp.focus();
+    }
+    document.getElementById('search').addEventListener('input', e => {
+      document.getElementById('search-clear').style.display = e.target.value ? 'flex' : 'none';
+    });
     document.getElementById('search').addEventListener('input', debounce(renderTable, 120));
 
     async function initApp() {
