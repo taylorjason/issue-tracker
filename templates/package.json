@@ -1,0 +1,34 @@
+{
+  "name": "mcm-app",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "preview": "vite preview",
+    "test": "node scripts/validate-roundtrip.mjs",
+    "embed-fonts": "node scripts/embed-fonts.mjs --force",
+    "build": "npm run build:singlefile",
+    "build:localhost": "node scripts/increment-build.mjs && node scripts/embed-fonts.mjs && vite build --mode localhost && node scripts/finalize-dist-html.mjs localhost",
+    "build:singlefile": "node scripts/increment-build.mjs && node scripts/embed-fonts.mjs && vite build --mode singlefile && node scripts/finalize-dist-html.mjs singlefile",
+    "deploy": "npm run build:localhost && npm run serve",
+    "deploy:singlefile": "npm run build:singlefile && npm run serve",
+    "commit-build": "npm run build:singlefile && git add -A && node scripts/do-commit.mjs \"$npm_config_message\"",
+    "audit": "npm audit",
+    "serve": "node --watch local_server/server.mjs",
+    "dev:all": "concurrently \"node --watch --env-file=.env.local local_server/server.mjs\" \"npm run dev\"",
+    "build-serve": "npm run build:localhost && npm run serve",
+    "serve:dist": "node scripts/serve-dist.mjs",
+    "package": "npm run build:singlefile && node scripts/package-zip.mjs"
+  },
+  "dependencies": {
+    "preact": "^10.24.3",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "concurrently": "^9.2.1",
+    "vite": "^6.0.11",
+    "vite-plugin-singlefile": "^2.0.4"
+  }
+}
