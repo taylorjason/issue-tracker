@@ -14,7 +14,9 @@ if ($DataDir -eq ".\data") {
 }
 
 # ── Token generation ──────────────────────────────────────────────────────────
-$tokenBytes = [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32)
+$tokenBytes = New-Object byte[] 32
+$rng        = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($tokenBytes)
 $Token      = [Convert]::ToBase64String($tokenBytes)
 Write-Host "[Nova] Session token generated (ephemeral — changes on each server start)"
 
@@ -45,7 +47,7 @@ foreach ($key in $AllowedKeys) {
         $Data[$key] = $null
     }
 }
-Write-Host "[Nova] Loaded $(($Data.Values | Where-Object { $null -ne $_ }).Count) key(s) from $DataDir"
+Write-Host "[Nova] Loaded $( @($Data.Values | Where-Object { $null -ne $_ }).Count ) key(s) from $DataDir"
 
 $LocalhostCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*; base-uri 'none'; form-action 'none'; object-src 'none'"
 
@@ -231,14 +233,20 @@ while ($listener.IsListening) {
 
                     $Data[$apiKey] = $body
                     $filePath      = Join-Path $DataDir "$apiKey.json"
-                    Set-Content -Path $filePath -Value $body -Encoding UTF8 -NoNewline
-                    Write-Host "[Nova] POST '$apiKey' — Saved $($body.Length) bytes"
+                    
+                    # PS 5.1 friendly way to write files WITHOUT a BOM (Byte Order Mark)
+                    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+                    [System.IO.File]::WriteAllText($filePath, $body, $utf8NoBom)
+                    
+                    Write-Host "[Nova] POST '$apiKey' - Saved $($body.Length) bytes"
                     Send-Text $res 200 'application/json' '{"ok":true}'
-                } catch {
+                } 
+                catch {
                     Write-Warning "[Nova] POST write error for key '$apiKey': $_"
                     Send-Text $res 500 'application/json' '{"error":"Write failed"}'
                 }
-            } else {
+            } 
+            else {
                 Send-Text $res 405 'application/json' '{"error":"Method not allowed"}'
             }
 

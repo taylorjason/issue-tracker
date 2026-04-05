@@ -7,9 +7,12 @@ $serverScript = Join-Path $scriptDir "server.ps1"
 
 $Port = 1515
 
-# ── Start combined server in a new PowerShell window ─────────────────────────
+# Detect which PowerShell to use for the new window (pwsh for PS7, powershell for PS5.1)
+$psExe = "pwsh"
+if (-not (Get-Command "pwsh" -ErrorAction SilentlyContinue)) { $psExe = "powershell" }
+
 Write-Host "[Nova Launcher] Starting server on port $Port..."
-Start-Process powershell -ArgumentList `
+Start-Process $psExe -ArgumentList `
     "-NoExit", `
     "-File", "`"$serverScript`"", `
     "-DistDir", "`"$repoRoot`"", `
