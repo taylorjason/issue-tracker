@@ -27,20 +27,20 @@ if ($DataDir -eq "..\nova-data" ) {
     $DataDir = Get-ResolvedPath $DataDir
 }
 
-# ── Token generation ──────────────────────────────────────────────────────────
+# = Token generation =============================
 $tokenBytes = New-Object byte[] 32
 $rng        = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 $rng.GetBytes($tokenBytes)
 $Token      = [Convert]::ToBase64String($tokenBytes)
-Write-Host "[Nova] Session token generated (ephemeral — changes on each server start)"
+Write-Host "[Nova] Session token generated (ephemeral - changes on each server start)"
 
-# ── Data directory ────────────────────────────────────────────────────────────
+# = Data directory ==============================
 if (-not (Test-Path $DataDir)) {
     New-Item -ItemType Directory -Path $DataDir | Out-Null
     Write-Host ("[Nova] Created data directory: {0}" -f $DataDir)
 }
 
-# ── Whitelisted key domains ───────────────────────────────────────────────────
+# = Whitelisted key domains ==========================
 $AllowedKeys = @(
   'tracker_issues_v3',
   'tracker_cats_v3',
@@ -50,7 +50,7 @@ $AllowedKeys = @(
   'tracker_export_destination_v1'
 )
 
-# ── Load persisted data from disk into memory ─────────────────────────────────
+# = Load persisted data from disk into memory =================
 $Data = @{}
 foreach ($key in $AllowedKeys) {
     $filePath = Join-Path $DataDir ("{0}.json" -f $key)
@@ -73,7 +73,7 @@ $LocalhostCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-e
 Write-Host ("[Nova] Serving static files from: {0}" -f $DistDir)
 Write-Host ("[Nova] CSP: {0}" -f $LocalhostCsp)
 
-# ── Safe HTML Patching ───────────────────────────────────────────────────────
+# = Safe HTML Patching ============================
 function Get-IndexHtml {
     $indexPath = Join-Path $DistDir "index.html"
     if (-not (Test-Path $indexPath)) {
@@ -130,7 +130,7 @@ function Write-RequestLog($res, [int]$status = 200, [string]$contentType = 'text
     $res.StatusCode  = $status
     $res.ContentType = $contentType
     
-    # ── CORS & Cache Headers ──
+    # = CORS & Cache Headers =
     $res.AddHeader("Access-Control-Allow-Origin", "*")
     $res.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $res.AddHeader("Access-Control-Allow-Headers", "Content-Type, X-Nova-Token")
@@ -146,7 +146,7 @@ function Write-ByteResponse($res, [int]$status = 200, [string]$contentType = 'ap
     $res.StatusCode  = $status
     $res.ContentType = $contentType
     
-    # ── CORS & Cache Headers (Static Assets) ──
+    # = CORS & Cache Headers (Static Assets) =
     $res.AddHeader("Access-Control-Allow-Origin", "*")
     $res.AddHeader("Cache-Control", "public, max-age=3600")
 
@@ -161,7 +161,7 @@ $listener.Prefixes.Add(("http://127.0.0.1:{0}/" -f $Port))
 try {
     $listener.Start()
 } catch {
-    Write-Error ("[Nova] Could not bind to http://127.0.0.1:{0}/ — is another process using this port?" -f $Port)
+    Write-Error ("[Nova] Could not bind to http://127.0.0.1:{0}/ - is another process using this port?" -f $Port)
     exit 1
 }
 
@@ -238,12 +238,12 @@ while ($listener.IsListening) {
             if ($req.HttpMethod -eq 'GET') {
                 $val = $Data[$apiKey]
                 if ($null -eq $val) {
-                    Write-Host ("[Nova] GET '{0}' — No data on disk (204)" -f $apiKey)
+                    Write-Host ("[Nova] GET '{0}' - No data on disk (204)" -f $apiKey)
                     $res.StatusCode = 204
                     $res.AddHeader("Access-Control-Allow-Origin", "*")
                     $res.OutputStream.Close()
                 } else {
-                    Write-Host ("[Nova] GET '{0}' — Serving {1} bytes" -f $apiKey, $val.Length)
+                    Write-Host ("[Nova] GET '{0}' - Serving {1} bytes" -f $apiKey, $val.Length)
                     Write-RequestLog $res 200 'application/json; charset=utf-8' $val
                 }
 

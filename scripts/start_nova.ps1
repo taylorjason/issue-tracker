@@ -21,7 +21,7 @@ Start-Process $psExe -ArgumentList `
     "-DataDir", "`"$(Join-Path $scriptDir '..\nova-data')`"", `
     "-Port", "$Port"
 
-# ── Give the server a moment to bind, then open the browser ───────────────────
+# == Give the server a moment to bind, then open the browser ===================
 Start-Sleep -Milliseconds 1200
 Write-Host ("[Nova Launcher] Opening http://127.0.0.1:{0} ..." -f $Port)
 Start-Process ("http://127.0.0.1:{0}" -f $Port)

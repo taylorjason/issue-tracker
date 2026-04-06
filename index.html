@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.1.0(24)</title>
+  <title>Issue Tracker v1.1.0(25)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2010,7 +2010,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.1.0 (Build 24)</div>
+        v1.1.0 (Build 25)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2110,7 +2110,7 @@
           <div class="scard">
             <div class="schead">
               <div class="sctitle">Statuses</div>
-              <div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="exportJSON(event)"
+              <div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="exportJSON(event, true)"
                   title="Export all data to JSON">&#x2193; Export JSON</button><button class="btn btn-ghost btn-sm"
                   onclick="document.getElementById('file-input').click()" title="Import from JSON">&#x2191; Import
                   JSON</button></div>
@@ -2213,28 +2213,28 @@
               <div class="expinfo">
                 <div class="exptitle">JSON</div>
                 <div class="expdesc">Full export -- the only format that can be re-imported.</div>
-              </div><button class="btn btn-ghost btn-sm" onclick="exportJSON(event)">Export</button>
+              </div><button class="btn btn-ghost btn-sm" onclick="exportJSON(event, true)">Export</button>
             </div>
             <div class="expcard">
               <div class="expicon">📊</div>
               <div class="expinfo">
                 <div class="exptitle">CSV</div>
                 <div class="expdesc">Spreadsheet-compatible. One row per issue.</div>
-              </div><button class="btn btn-ghost btn-sm" onclick="exportCSV(event)">Export</button>
+              </div><button class="btn btn-ghost btn-sm" onclick="exportCSV(event, true)">Export</button>
             </div>
             <div class="expcard">
               <div class="expicon">📝</div>
               <div class="expinfo">
                 <div class="exptitle">Markdown</div>
                 <div class="expdesc">Readable document grouped by status.</div>
-              </div><button class="btn btn-ghost btn-sm" onclick="exportMarkdown(event)">Export</button>
+              </div><button class="btn btn-ghost btn-sm" onclick="exportMarkdown(event, true)">Export</button>
             </div>
             <div class="expcard">
               <div class="expicon">🌐</div>
               <div class="expinfo">
                 <div class="exptitle">HTML Report</div>
                 <div class="expdesc">Standalone file ready to share or archive.</div>
-              </div><button class="btn btn-ghost btn-sm" onclick="exportHTML(event)">Export</button>
+              </div><button class="btn btn-ghost btn-sm" onclick="exportHTML(event, true)">Export</button>
             </div>
           </div>
           <div style="margin-bottom:10px;font-size:13px;color:var(--t2);font-weight:600;">Import</div>
@@ -3979,7 +3979,8 @@
         return true;
       });
     }
-    function getExportIssues() {
+    function getExportIssues(forceAll = false) {
+      if (forceAll) return applySorting([...issues]);
       if (isIssueView()) return applySorting(getFiltered());
       const savedView = currentView;
       currentView = lastIssueView;
@@ -3987,7 +3988,8 @@
       currentView = savedView;
       return scoped;
     }
-    function exportScopeLabel() {
+    function exportScopeLabel(forceAll = false) {
+      if (forceAll) return 'all issues';
       const view = isIssueView() ? currentView : lastIssueView;
       if (view === 'all') return 'all issues';
       const st = getStatus(view);
@@ -3995,7 +3997,8 @@
       if (isTaggedView(view)) return `${taggedViewLabel(view)} view`;
       return 'current view';
     }
-    function exportFileSlug() {
+    function exportFileSlug(forceAll = false) {
+      if (forceAll) return 'all';
       const view = isIssueView() ? currentView : lastIssueView;
       if (view === 'all') return 'all';
       const st = getStatus(view);
@@ -4732,29 +4735,29 @@
       };
     }
 
-    async function exportJSON(evt) {
-      const exportIssues = getExportIssues();
-      const filename = `issues_${exportFileSlug()}_${exportStamp()}.json`;
+    async function exportJSON(evt, forceAll = false) {
+      const exportIssues = getExportIssues(forceAll);
+      const filename = `issues_${exportFileSlug(forceAll)}_${exportStamp()}.json`;
       const content = JSON.stringify(buildExportPayload(exportIssues), null, 2);
       const result = await deliverExport(filename, content, 'application/json', evt);
-      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel()}` : 'Manual JSON export opened');
+      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel(forceAll)}` : 'Manual JSON export opened');
     }
-    async function exportCSV(evt) {
-      const exportIssues = getExportIssues();
+    async function exportCSV(evt, forceAll = false) {
+      const exportIssues = getExportIssues(forceAll);
       const hdr = ['ID', 'Title', 'Status', 'Severity', 'Effort', 'Category', 'Subcategory', 'Tags', 'Blocked By', 'Description', 'Notes', 'Created', 'Updated'];
       const rows = exportIssues.map(i => [i.id, i.title, statusLabel(i.status), SEV_LABELS(i.severity) || i.severity,
       EFFORT_LABELS(i.effort) || i.effort, i.category || '', i.subcategory || '', (i.tags || []).join(', '), (i.blockedBy || []).join(', '), i.description || '',
       (i.log || []).map(e => `[${fmtDateTime(e.ts)}] ${e.text}`).join(' | '), fmtDate(i.createdAt), fmtDate(i.updatedAt)]
         .map(v => `"${String(v).replace(/"/g, '""')}"`));
-      const filename = `issues_${exportFileSlug()}_${exportStamp()}.csv`;
+      const filename = `issues_${exportFileSlug(forceAll)}_${exportStamp()}.csv`;
       const content = [hdr.join(','), ...rows.map(r => r.join(','))].join('\n');
       const result = await deliverExport(filename, content, 'text/csv', evt);
-      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel()}` : 'Manual CSV export opened');
+      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel(forceAll)}` : 'Manual CSV export opened');
     }
-    async function exportMarkdown(evt) {
-      const exportIssues = getExportIssues();
+    async function exportMarkdown(evt, forceAll = false) {
+      const exportIssues = getExportIssues(forceAll);
       let md = `# Issue Tracker Export\n_${new Date().toLocaleDateString()}_\n\n`;
-      md += `View: ${exportScopeLabel()}\n\n`;
+      md += `View: ${exportScopeLabel(forceAll)}\n\n`;
       statuses.forEach(st => {
         const g = exportIssues.filter(i => i.status === st.id); if (!g.length) return;
         md += `## ${st.name}\n\n`;
@@ -4768,17 +4771,17 @@
           if (i.log && i.log.length) { md += '**Notes:**\n'; i.log.forEach(e => md += `- _${fmtDateTime(e.ts)}_: ${e.text}\n`); md += '\n'; }
         });
       });
-      const filename = `issues_${exportFileSlug()}_${exportStamp()}.md`;
+      const filename = `issues_${exportFileSlug(forceAll)}_${exportStamp()}.md`;
       const result = await deliverExport(filename, md, 'text/markdown', evt);
-      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel()}` : 'Manual Markdown export opened');
+      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel(forceAll)}` : 'Manual Markdown export opened');
     }
-    async function exportHTML(evt) {
-      const exportIssues = getExportIssues();
+    async function exportHTML(evt, forceAll = false) {
+      const exportIssues = getExportIssues(forceAll);
       const rows = exportIssues.map(i => `<tr><td>${esc(i.id)}</td><td><strong>${esc(i.title)}</strong>${i.description ? `<br><small style="color:#888">${esc(i.description.slice(0, 100))}${i.description.length > 100 ? '…' : ''}</small>` : ''}</td><td>${esc(statusLabel(i.status))}</td><td>${esc(SEV_LABELS(i.severity) || i.severity)}</td><td>${esc(EFFORT_LABELS(i.effort) || i.effort)}</td><td>${esc(i.category || '')}${i.subcategory ? ' / ' + esc(i.subcategory) : ''}</td><td>${(i.tags || []).map(t => `<span style="background:#e8f0ff;color:#3355cc;border-radius:20px;padding:1px 7px;font-size:11px">${esc(t)}</span>`).join(' ')}</td><td>${(i.log || []).length}</td><td>${fmtDate(i.createdAt)}</td></tr>`).join('');
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Issue Report</title><style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:40px auto;padding:0 20px;color:#111}h1{font-size:22px;border-bottom:2px solid #eee;padding-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#666;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}td{padding:10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top}tr:hover td{background:#fafafa}</style></head><body><h1>Issue Tracker Report</h1><p style="color:#888;font-size:13px">Exported ${new Date().toLocaleString()} · ${exportIssues.length} issues · ${esc(exportScopeLabel())}</p><table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Severity</th><th>Effort</th><th>Category</th><th>Tags</th><th>Blocked By</th><th>Notes</th><th>Created</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
-      const filename = `issues_${exportFileSlug()}_${exportStamp()}.html`;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Issue Report</title><style>body{font-family:system-ui,sans-serif;max-width:1100px;margin:40px auto;padding:0 20px;color:#111}h1{font-size:22px;border-bottom:2px solid #eee;padding-bottom:12px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#666;text-transform:uppercase;padding:8px 10px;border-bottom:2px solid #eee}td{padding:10px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top}tr:hover td{background:#fafafa}</style></head><body><h1>Issue Tracker Report</h1><p style="color:#888;font-size:13px">Exported ${new Date().toLocaleString()} · ${exportIssues.length} issues · ${esc(exportScopeLabel(forceAll))}</p><table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Severity</th><th>Effort</th><th>Category</th><th>Tags</th><th>Blocked By</th><th>Notes</th><th>Created</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+      const filename = `issues_${exportFileSlug(forceAll)}_${exportStamp()}.html`;
       const result = await deliverExport(filename, html, 'text/html', evt);
-      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel()}` : 'Manual HTML export opened');
+      showToast(result.ok ? `${result.mode === 'clipboard' ? 'Copied' : 'Exported'} ${exportIssues.length} issue${exportIssues.length !== 1 ? 's' : ''} from ${exportScopeLabel(forceAll)}` : 'Manual HTML export opened');
     }
 
     // ── Import ─────────────────────────────────────────────────────────────────────
