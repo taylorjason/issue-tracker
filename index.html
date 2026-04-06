@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.1.0(21)</title>
+  <title>Issue Tracker v1.1.0(22)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2010,7 +2010,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.1.0 (Build 21)</div>
+        v1.1.0 (Build 22)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2171,6 +2171,15 @@
                 <div id="new-eff-swatches" style="display:flex;gap:4px;"></div>
                 <button class="btn btn-ghost btn-sm" onclick="addEffLevel()">Add</button>
               </div>
+            </div>
+          </div>
+
+          <div class="scard">
+            <div class="schead">
+              <div class="sctitle">Security</div>
+            </div>
+            <div class="scbody" id="security-settings-section">
+              <div style="color:var(--t3);font-size:13px;">Loading…</div>
             </div>
           </div>
 
@@ -3173,7 +3182,19 @@
     async function checkEncryptionStatus() {
       let sample = await performLocalApiLoad(LS_ISSUES);
       if (!sample) sample = await idbLoad(LS_ISSUES);
-      if (sample && sample.includes('"enc":true')) {
+      
+      // If local is empty but remote is configured, check remote
+      if (!sample && apiUrl && apiKey) {
+        try {
+          const res = await fetch(apiUrl, { headers: apiHeaders() });
+          if (res.ok) {
+            const json = await res.json();
+            sample = typeof json.content === 'string' ? json.content : null;
+          }
+        } catch(e) {}
+      }
+
+      if (sample && typeof sample === 'string' && sample.includes('"enc":true')) {
         isEncryptedMode = true;
         return true;
       }
@@ -3235,12 +3256,28 @@
         const json = await res.json();
 
         const sha = json.sha || '';
-        const data = json.content;
+        let data = json.content;
 
         if (!data) {
           // Return fresh state
           setSyncState('synced', 'Synced (new)');
           return;
+        }
+
+        // Handle encrypted remote data
+        if (typeof data === 'string' && data.includes('"enc":true')) {
+          if (!currentKey) {
+            setSyncState('error', 'Remote Locked', 'Server data is encrypted. Unlock in Settings to sync.');
+            return;
+          }
+          try {
+            const decrypted = await decryptData(data, currentKey);
+            data = JSON.parse(decrypted);
+          } catch (e) {
+            setSyncState('error', 'Decrypt Error', 'Password mismatch or corrupted remote data.');
+            console.error('Remote decrypt error:', e);
+            return;
+          }
         }
 
         if (!forceRemote && apiSHA && sha && sha !== apiSHA) {
@@ -3261,7 +3298,12 @@
     async function apiSave() {
       if (!apiUrl || !apiKey) return;
       setSyncState('saving');
-      const payload = buildPayload();
+      
+      let payload = buildPayload();
+      if (currentKey) {
+        payload = await encryptData(JSON.stringify(payload), currentKey);
+      }
+      
       const body = { content: payload };
       if (apiSHA) body.sha = apiSHA;
 
@@ -4393,6 +4435,43 @@
     <div style="font-size:12px;color:var(--t3);margin-top:10px;">If clipboard access is blocked by the browser, the export will fall back to the manual export dialog.</div>`;
     }
 
+    let isSettingUpEncryption = false;
+    let isTurningOffEncryption = false;
+    function renderSecuritySettings() {
+      const el = document.getElementById('security-settings-section');
+      if (!el) return;
+      if (currentKey) {
+        el.innerHTML = `<div style="font-size:13px;color:var(--t2);margin-bottom:8px;">Encryption is <strong>ON</strong></div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">Local data and sync server payloads are encrypted with AES-256-GCM.</div>
+      <button class="btn btn-danger btn-sm" onclick="toggleEncryption()">Turn OFF Encryption</button>`;
+      } else {
+        el.innerHTML = `<div style="font-size:13px;color:var(--t3);margin-bottom:8px;">Encryption is <strong>OFF</strong></div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px;">Data is stored in plaintext. Set a password to enable AES-256-GCM encryption.</div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleEncryption()">Turn ON Encryption</button>`;
+      }
+    }
+
+    async function toggleEncryption() {
+      if (currentKey) {
+        if (!confirm('Turn OFF encryption? All local and remote data will be decrypted and stored in plaintext. This action requires current access to your data.')) return;
+        isTurningOffEncryption = true;
+        document.getElementById('password-modal').classList.remove('hidden');
+        document.getElementById('password-modal-title').textContent = 'Disable Encryption';
+        document.getElementById('password-modal-desc').textContent = 'Enter your password to confirm disabling encryption and decrypting all storage.';
+        document.getElementById('password-skip-btn').style.display = 'none';
+        document.getElementById('unlock-password').value = '';
+        document.getElementById('unlock-password').focus();
+      } else {
+        isSettingUpEncryption = true;
+        document.getElementById('password-modal').classList.remove('hidden');
+        document.getElementById('password-modal-title').textContent = 'Enable Encryption';
+        document.getElementById('password-modal-desc').textContent = 'Set a password to encrypt your local and remote storage. You will need this password whenever you load the app.';
+        document.getElementById('password-skip-btn').style.display = 'none';
+        document.getElementById('unlock-password').value = '';
+        document.getElementById('unlock-password').focus();
+      }
+    }
+
 
     // ── Shared level item renderer (used for both severity and effort) ────────────
     function renderLevelItems(arr, containerId, newSwatchId, editingId, callbacks) {
@@ -4551,7 +4630,7 @@
       saveData(); renderEffItems(); updateFilterOptions();
     }
 
-    function renderSettings() { renderStatusItems(); renderCatList(); renderSevItems(); renderEffItems(); renderApiSettings(); renderExportSettings(); }
+    function renderSettings() { renderStatusItems(); renderCatList(); renderSevItems(); renderEffItems(); renderSecuritySettings(); renderApiSettings(); renderExportSettings(); }
 
     // ── Categories ─────────────────────────────────────────────────────────────────
     function openCatModal() { document.getElementById('cat-modal').classList.remove('hidden'); setTimeout(() => document.getElementById('cat-name-inp').focus(), 50); }
@@ -4818,6 +4897,8 @@
     document.getElementById('search').addEventListener('input', debounce(renderTable, 120));
 
     async function initApp() {
+      // 0. Load API config early so we can check remote encryption
+      loadApiConfig();
       // 1. Check if we need to decrypt
       await openDB(); // ensure IDB opens
       const isEnc = await checkEncryptionStatus();
@@ -4840,13 +4921,9 @@
         document.getElementById('password-skip-btn').style.display = 'inline-block';
         document.getElementById('unlock-password').focus();
       } else {
-        // Not encrypted, or fresh DB
-        // Show prompt if user wants to setup encryption?
-        document.getElementById('password-modal').classList.remove('hidden');
-        document.getElementById('password-modal-title').textContent = 'Initial Setup (Optional)';
-        document.getElementById('password-modal-desc').textContent = 'Set an optional password to encrypt your local database. Leave blank or skip to remain unencrypted.';
-        document.getElementById('password-skip-btn').style.display = 'inline-block';
-        document.getElementById('unlock-password').focus();
+        // Not encrypted, just load and finish
+        await loadLocalCore();
+        finishInit();
       }
     }
 
@@ -4858,10 +4935,44 @@
       }
       try {
         currentKey = await deriveKey(pwd);
-        await loadLocalCore();
-        // If we successfully loaded, and we are in setup mode (isEnc=false), it's fine.
-        // If we are in unlock mode (isEnc=true), this proves the password works.
         sessionStorage.setItem(SESSION_PWD_KEY, pwd);
+
+        if (isSettingUpEncryption) {
+          isSettingUpEncryption = false;
+          isEncryptedMode = true;
+          saveData(); // Immediate save to encrypt everything
+          renderSecuritySettings();
+          document.getElementById('password-modal').classList.add('hidden');
+          document.getElementById('unlock-error').style.display = 'none';
+          showToast('Encryption enabled and data synced');
+          return;
+        }
+
+        if (isTurningOffEncryption) {
+          // Verify password by attempting to decrypt existing data
+          const sample = await idbLoad(LS_ISSUES) || await performLocalApiLoad(LS_ISSUES);
+          if (sample && typeof sample === 'string' && sample.includes('"enc":true')) {
+            try {
+              await decryptData(sample, currentKey);
+            } catch (e) {
+              currentKey = null; // Reset if wrong
+              throw new Error('Incorrect password');
+            }
+          }
+          isTurningOffEncryption = false;
+          isEncryptedMode = false;
+          const oldKey = currentKey;
+          currentKey = null; // Set to null so saveData writes plaintext
+          sessionStorage.removeItem(SESSION_PWD_KEY);
+          saveData(); 
+          renderSecuritySettings();
+          document.getElementById('password-modal').classList.add('hidden');
+          document.getElementById('unlock-error').style.display = 'none';
+          showToast('Encryption disabled and data unencrypted');
+          return;
+        }
+
+        await loadLocalCore();
         document.getElementById('password-modal').classList.add('hidden');
         document.getElementById('unlock-error').style.display = 'none';
         finishInit();
@@ -4880,7 +4991,6 @@
     }
 
     function finishInit() {
-      loadApiConfig();
       renderSidebarNav();
       updateCounts();
       updateFilterOptions();

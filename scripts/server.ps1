@@ -1,16 +1,30 @@
 # =============================================================================
+# Nova Local Implementation (PS 5.1 & PS 7+ Compatible)
+# =============================================================================
 param (
     [int]    $Port    = 1515,
     [string] $DataDir = ".\data",
     [string] $DistDir = "..\"
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ($DistDir -eq "..\") {
-    $DistDir = Resolve-Path (Join-Path $scriptDir "..")
+# HELPER: Ensure paths are absolute and resolved for .NET methods
+function Get-ResolvedPath($Path) {
+    return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 }
-if ($DataDir -eq ".\data") {
-    $DataDir = Join-Path $scriptDir "data"
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+if ($DistDir -eq "..\" ) {
+    $resolvedRoot = Resolve-Path (Join-Path $scriptDir "..")
+    $DistDir = Get-ResolvedPath $resolvedRoot.Path
+} else {
+    $DistDir = Get-ResolvedPath $DistDir
+}
+
+if ($DataDir -eq ".\data" ) {
+    $DataDir = Get-ResolvedPath (Join-Path $scriptDir "data")
+} else {
+    $DataDir = Get-ResolvedPath $DataDir
 }
 
 # ── Token generation ──────────────────────────────────────────────────────────
@@ -23,7 +37,7 @@ Write-Host "[Nova] Session token generated (ephemeral — changes on each server
 # ── Data directory ────────────────────────────────────────────────────────────
 if (-not (Test-Path $DataDir)) {
     New-Item -ItemType Directory -Path $DataDir | Out-Null
-    Write-Host "[Nova] Created data directory: $DataDir"
+    Write-Host ("[Nova] Created data directory: {0}" -f $DataDir)
 }
 
 # ── Whitelisted key domains ───────────────────────────────────────────────────
@@ -39,47 +53,72 @@ $AllowedKeys = @(
 # ── Load persisted data from disk into memory ─────────────────────────────────
 $Data = @{}
 foreach ($key in $AllowedKeys) {
-    $filePath = Join-Path $DataDir "$key.json"
+    $filePath = Join-Path $DataDir ("{0}.json" -f $key)
     if (Test-Path $filePath) {
-        try   { $Data[$key] = Get-Content $filePath -Raw -Encoding UTF8 }
-        catch { $Data[$key] = $null; Write-Warning "[Nova] Could not read $filePath" }
+        try { 
+            $absolutePath = Get-ResolvedPath $filePath
+            $Data[$key] = [System.IO.File]::ReadAllText($absolutePath, [System.Text.Encoding]::UTF8)
+        } catch { 
+            $Data[$key] = $null
+            Write-Warning ("[Nova] Could not read {0}: {1}" -f $filePath, $_)
+        }
     } else {
         $Data[$key] = $null
     }
 }
-Write-Host "[Nova] Loaded $( @($Data.Values | Where-Object { $null -ne $_ }).Count ) key(s) from $DataDir"
+Write-Host ("[Nova] Loaded {0} key(s) from {1}" -f (@($Data.Values | Where-Object { $null -ne $_ }).Count), $DataDir)
 
 $LocalhostCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*; base-uri 'none'; form-action 'none'; object-src 'none'"
 
-Write-Host "[Nova] Serving static files from: $(Resolve-Path $DistDir)"
-Write-Host "[Nova] CSP: $LocalhostCsp"
+Write-Host ("[Nova] Serving static files from: {0}" -f $DistDir)
+Write-Host ("[Nova] CSP: {0}" -f $LocalhostCsp)
 
+# ── Safe HTML Patching ───────────────────────────────────────────────────────
 function Get-IndexHtml {
     $indexPath = Join-Path $DistDir "index.html"
     if (-not (Test-Path $indexPath)) {
         return $null
     }
     
-    $raw = Get-Content $indexPath -Raw -Encoding UTF8
-    $metaTag = '<meta name="nova-token" content="' + $Token + '" />'
-    $raw = $raw -replace '(<head[^>]*>)', "`$1`n  $metaTag"
-
-    $cspMeta = '<meta http-equiv="Content-Security-Policy" content="' + $LocalhostCsp + '">'
-    $cspPattern = '<meta[^>]+http-equiv\s*=\s*[''"]Content-Security-Policy[''"][^>]*>'
-    if ($raw -match $cspPattern) {
-        $raw = $raw -replace $cspPattern, $cspMeta
+    $absolutePath = Get-ResolvedPath $indexPath
+    $raw = [System.IO.File]::ReadAllText($absolutePath, [System.Text.Encoding]::UTF8)
+    
+    # Split the file at the first <script tag to avoid corrupting minified bundles
+    $parts = $raw -split "(<script)", 2
+    
+    # parts[0] is the pre-script (header stuff)
+    # parts[1] is "<script"
+    # parts[2] is the rest (the code)
+    
+    if ($parts.Count -lt 3) {
+        # No script tags found, patch as usual
+        $header = $raw
+        $footer = ""
     } else {
-        $raw = $raw -replace '(<head[^>]*>)', "`$1`n  $cspMeta"
+        $header = $parts[0]
+        $footer = $parts[1] + $parts[2]
     }
 
-    return $raw
+    $metaTag = ("`n  <meta name=""nova-token"" content=""{0}"" />" -f $Token)
+    $header = $header -replace '(<head[^>]*>)', ("`$1{0}" -f $metaTag)
+
+    $cspMeta = ("`n  <meta http-equiv=""Content-Security-Policy"" content=""{0}"">" -f $LocalhostCsp)
+    $cspPattern = '<meta[^>]+http-equiv\s*=\s*[''"]Content-Security-Policy[''"][^>]*>'
+    
+    if ($header -match $cspPattern) {
+        $header = $header -replace $cspPattern, $cspMeta
+    } else {
+        $header = $header -replace '(<head[^>]*>)', ("`$1{0}" -f $cspMeta)
+    }
+
+    return $header + $footer
 }
 
 $MimeTypes = @{
     '.html' = 'text/html; charset=utf-8'
-    '.js'   = 'application/javascript'
-    '.css'  = 'text/css'
-    '.svg'  = 'image/svg+xml'
+    '.js'   = 'application/javascript; charset=utf-8'
+    '.css'  = 'text/css; charset=utf-8'
+    '.svg'  = 'image/svg+xml; charset=utf-8'
     '.png'  = 'image/png'
     '.ico'  = 'image/x-icon'
     '.woff2'= 'font/woff2'
@@ -87,8 +126,7 @@ $MimeTypes = @{
     '.ttf'  = 'font/ttf'
 }
 
-function Send-Text {
-    param($res, [int]$status = 200, [string]$contentType = 'text/plain', [string]$body = '')
+function Write-RequestLog($res, [int]$status = 200, [string]$contentType = 'text/plain; charset=utf-8', [string]$body = '') {
     $res.StatusCode  = $status
     $res.ContentType = $contentType
     
@@ -104,8 +142,7 @@ function Send-Text {
     $res.OutputStream.Close()
 }
 
-function Send-Bytes {
-    param($res, [int]$status = 200, [string]$contentType = 'application/octet-stream', [byte[]]$bytes)
+function Write-ByteResponse($res, [int]$status = 200, [string]$contentType = 'application/octet-stream', [byte[]]$bytes) {
     $res.StatusCode  = $status
     $res.ContentType = $contentType
     
@@ -119,23 +156,23 @@ function Send-Bytes {
 }
 
 $listener = [System.Net.HttpListener]::new()
-$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+$listener.Prefixes.Add(("http://127.0.0.1:{0}/" -f $Port))
 
 try {
     $listener.Start()
 } catch {
-    Write-Error "[Nova] Could not bind to http://127.0.0.1:$Port/ — is another process using this port?"
+    Write-Error ("[Nova] Could not bind to http://127.0.0.1:{0}/ — is another process using this port?" -f $Port)
     exit 1
 }
 
-Write-Host "[Nova] Listening at http://127.0.0.1:$Port/"
+Write-Host ("[Nova] Listening at http://127.0.0.1:{0}/" -f $Port)
 Write-Host "[Nova] Press Ctrl+C to stop."
 
 while ($listener.IsListening) {
     try {
         $ctx = $listener.GetContext()
     } catch {
-        if ($listener.IsListening) { Write-Warning "[Nova] Listener error: $_" }
+        if ($listener.IsListening) { Write-Warning ("[Nova] Listener error: {0}" -f $_) }
         continue
     }
 
@@ -157,9 +194,9 @@ while ($listener.IsListening) {
         if ($path -eq '/' -or $path -eq '/index.html') {
             $htmlContent = Get-IndexHtml
             if ($null -ne $htmlContent) {
-                Send-Text $res 200 'text/html; charset=utf-8' $htmlContent
+                Write-RequestLog $res 200 'text/html; charset=utf-8' $htmlContent
             } else {
-                Send-Text $res 503 'text/plain' 'index.html not found'
+                Write-RequestLog $res 503 'text/plain; charset=utf-8' 'index.html not found'
             }
             continue
         }
@@ -170,10 +207,10 @@ while ($listener.IsListening) {
             if (Test-Path $full -PathType Leaf) {
                 $ext   = [System.IO.Path]::GetExtension($full).ToLower()
                 $mime  = if ($MimeTypes.ContainsKey($ext)) { $MimeTypes[$ext] } else { 'application/octet-stream' }
-                $bytes = [System.IO.File]::ReadAllBytes($full)
-                Send-Bytes $res 200 $mime $bytes
+                $bytes = [System.IO.File]::ReadAllBytes((Get-ResolvedPath $full))
+                Write-ByteResponse $res 200 $mime $bytes
             } else {
-                Send-Text $res 404 'text/plain' 'Asset not found'
+                Write-RequestLog $res 404 'text/plain; charset=utf-8' 'Asset not found'
             }
             continue
         }
@@ -181,82 +218,74 @@ while ($listener.IsListening) {
         if ($path.StartsWith('/api/')) {
             $reqToken = $req.Headers['X-Nova-Token']
             if ($reqToken -ne $Token) {
-                Write-Warning "[Nova] Unauthorized API request to '$path' (token mismatch)"
-                Send-Text $res 401 'application/json' '{"error":"Unauthorized"}'
+                Write-Warning ("[Nova] Unauthorized API request to '{0}' (token mismatch)" -f $path)
+                Write-RequestLog $res 401 'application/json; charset=utf-8' '{"error":"Unauthorized"}'
                 continue
             }
 
             $apiKey = $path.Substring(5).Trim('/')
 
             if ($apiKey -eq 'status') {
-                Send-Text $res 200 'application/json' '{"ok":true}'
+                Write-RequestLog $res 200 'application/json; charset=utf-8' '{"ok":true}'
                 continue
             }
 
             if ($AllowedKeys -notcontains $apiKey) {
-                Send-Text $res 404 'application/json' '{"error":"Unknown key"}'
+                Write-RequestLog $res 404 'application/json; charset=utf-8' '{"error":"Unknown key"}'
                 continue
             }
 
             if ($req.HttpMethod -eq 'GET') {
                 $val = $Data[$apiKey]
                 if ($null -eq $val) {
-                    Write-Host "[Nova] GET '$apiKey' — No data on disk (204)"
+                    Write-Host ("[Nova] GET '{0}' — No data on disk (204)" -f $apiKey)
                     $res.StatusCode = 204
                     $res.AddHeader("Access-Control-Allow-Origin", "*")
                     $res.OutputStream.Close()
                 } else {
-                    Write-Host "[Nova] GET '$apiKey' — Serving $($val.Length) bytes"
-                    Send-Text $res 200 'application/json' $val
+                    Write-Host ("[Nova] GET '{0}' — Serving {1} bytes" -f $apiKey, $val.Length)
+                    Write-RequestLog $res 200 'application/json; charset=utf-8' $val
                 }
 
             } elseif ($req.HttpMethod -eq 'POST') {
                 try {
-                    $MaxBodyBytes = 50 * 1024 * 1024
-                    if ($req.ContentLength64 -gt $MaxBodyBytes) {
-                        Send-Text $res 413 'application/json' '{"error":"Payload too large (50 MB limit)"}'
-                        continue
-                    }
-
+                    # No BOM check (PS 5.1 friendly)
                     $reader   = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
                     $body     = $reader.ReadToEnd()
                     $reader.Dispose()
 
                     if (-not $body -or $body.Trim() -eq '') {
-                        Send-Text $res 400 'application/json' '{"error":"Empty body"}'
+                        Write-RequestLog $res 400 'application/json; charset=utf-8' '{"error":"Empty body"}'
                         continue
                     }
                     try { $null = $body | ConvertFrom-Json -ErrorAction Stop } catch {
-                        Send-Text $res 400 'application/json' '{"error":"Invalid JSON"}'
+                        Write-RequestLog $res 400 'application/json; charset=utf-8' '{"error":"Invalid JSON"}'
                         continue
                     }
 
                     $Data[$apiKey] = $body
-                    $filePath      = Join-Path $DataDir "$apiKey.json"
+                    $filePath      = Join-Path $DataDir ("{0}.json" -f $apiKey)
                     
-                    # PS 5.1 friendly way to write files WITHOUT a BOM (Byte Order Mark)
+                    # Store as UTF-8 without BOM (.NET method is cross-platform safe)
                     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-                    [System.IO.File]::WriteAllText($filePath, $body, $utf8NoBom)
+                    [System.IO.File]::WriteAllText((Get-ResolvedPath $filePath), $body, $utf8NoBom)
                     
-                    Write-Host "[Nova] POST '$apiKey' - Saved $($body.Length) bytes"
-                    Send-Text $res 200 'application/json' '{"ok":true}'
-                } 
-                catch {
-                    Write-Warning "[Nova] POST write error for key '$apiKey': $_"
-                    Send-Text $res 500 'application/json' '{"error":"Write failed"}'
+                    Write-Host ("[Nova] POST '{0}' - Saved {1} bytes" -f $apiKey, $body.Length)
+                    Write-RequestLog $res 200 'application/json; charset=utf-8' '{"ok":true}'
+                } catch {
+                    Write-Warning ("[Nova] POST write error for key '{0}': {1}" -f $apiKey, $_)
+                    Write-RequestLog $res 500 'application/json; charset=utf-8' '{"error":"Write failed"}'
                 }
-            } 
-            else {
-                Send-Text $res 405 'application/json' '{"error":"Method not allowed"}'
+            } else {
+                Write-RequestLog $res 405 'application/json; charset=utf-8' '{"error":"Method not allowed"}'
             }
-
             continue
         }
 
-        Send-Text $res 404 'text/plain' 'Not found'
+        Write-RequestLog $res 404 'text/plain; charset=utf-8' 'Not found'
 
     } catch {
-        Write-Warning "[Nova] Request handling error: $_"
+        Write-Warning ("[Nova] Request handling error: {0}" -f $_)
         try { $res.StatusCode = 500; $res.OutputStream.Close() } catch {}
     }
 }
