@@ -18,7 +18,7 @@ Start-Process $psExe -ArgumentList `
     "-NoExit", `
     "-File", "`"$serverScript`"", `
     "-DistDir", "`"$repoRoot`"", `
-    "-DataDir", "`"$(Join-Path $scriptDir 'data')`"", `
+    "-DataDir", "`"$(Join-Path $scriptDir '..\nova-data')`"", `
     "-Port", "$Port"
 
 # ── Give the server a moment to bind, then open the browser ───────────────────

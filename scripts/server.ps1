@@ -3,7 +3,7 @@
 # =============================================================================
 param (
     [int]    $Port    = 1515,
-    [string] $DataDir = ".\data",
+    [string] $DataDir = "..\nova-data",
     [string] $DistDir = "..\"
 )
 
@@ -21,8 +21,8 @@ if ($DistDir -eq "..\" ) {
     $DistDir = Get-ResolvedPath $DistDir
 }
 
-if ($DataDir -eq ".\data" ) {
-    $DataDir = Get-ResolvedPath (Join-Path $scriptDir "data")
+if ($DataDir -eq "..\nova-data" ) {
+    $DataDir = Get-ResolvedPath (Join-Path $scriptDir "..\nova-data")
 } else {
     $DataDir = Get-ResolvedPath $DataDir
 }

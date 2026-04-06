@@ -15,7 +15,7 @@ PORT="1515"
 echo "[Nova Launcher] Starting server on port $PORT..."
 TRACKER_PORT="$PORT" \
 TRACKER_DIST_DIR="$REPO_ROOT" \
-TRACKER_DATA_DIR="$SCRIPT_DIR/data" \
+TRACKER_DATA_DIR="$REPO_ROOT/nova-data" \
   node "$SERVER_SCRIPT" &
 
 SERVER_PID=$!

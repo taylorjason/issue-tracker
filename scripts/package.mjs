@@ -48,13 +48,13 @@ try {
 try {
   if (process.platform === 'win32') {
     // Windows PowerShell - Note: Compress-Archive is a bit limited for exclusions
-    // We'll just zip the requested components. If users have data in scripts/data, it might be included.
+    // We'll just zip the requested components. The data folder is excluded.
     const cmd = `PowerShell -Command "Compress-Archive -Path 'index.html', 'scripts' -DestinationPath '${zipName}' -Force"`;
     execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
   } else {
     // macOS/Linux zip
     // -r recursive, -q quiet, -x exclude local data
-    const cmd = `zip -rq "${zipName}" index.html scripts -x "scripts/data/*"`;
+    const cmd = `zip -rq "${zipName}" index.html scripts -x "nova-data/*"`;
     execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
   }
   

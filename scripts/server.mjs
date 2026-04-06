@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const PORT     = parseInt(process.env.TRACKER_PORT || '1414', 10)
-const DATA_DIR = process.env.TRACKER_DATA_DIR || path.join(__dirname, 'data')
+const DATA_DIR = process.env.TRACKER_DATA_DIR || path.join(__dirname, '..', 'nova-data')
 const DIST_DIR = process.env.TRACKER_DIST_DIR || path.join(__dirname, '..')
 
 // ── Token generation ──────────────────────────────────────────────────────────
