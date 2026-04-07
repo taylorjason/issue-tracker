@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.nova.tracker</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{NODE_PATH}}</string>
+        <string>{{SERVER_SCRIPT_PATH}}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>TRACKER_PORT</key>
+        <string>1515</string>
+        <key>TRACKER_DIST_DIR</key>
+        <string>{{REPO_ROOT}}</string>
+        <key>TRACKER_DATA_DIR</key>
+        <string>{{REPO_ROOT}}/nova-data</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{REPO_ROOT}}/nova_server.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{REPO_ROOT}}/nova_server.log</string>
+    <key>WorkingDirectory</key>
+    <string>{{REPO_ROOT}}</string>
+</dict>
+</plist>

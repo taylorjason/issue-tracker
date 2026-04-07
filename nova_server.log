@@ -17,3 +17,63 @@
 [Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
 [Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
 [Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_cats_v3" — Serving 307 bytes
+[Nova] GET "tracker_statuses_v3" — Serving 809 bytes
+[Nova] GET "tracker_sevs_v1" — Serving 452 bytes
+[Nova] GET "tracker_effs_v1" — Serving 560 bytes
+[Nova] Session token generated (ephemeral — changes on each server start)
+[Nova] Loaded 5 key(s) from /Users/jasontaylor/Documents/GitHub/issue-tracker/nova-data
+[Nova] Serving static files from: /Users/jasontaylor/Documents/GitHub/issue-tracker
+[Nova] CSP: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' https://*; base-uri 'none'; form-action 'none'; object-src 'none'
+[Nova] Listening at http://127.0.0.1:1515/
+[Nova] Data directory: /Users/jasontaylor/Documents/GitHub/issue-tracker/nova-data
+[Nova] Press Ctrl+C to stop.
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_issues_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_cats_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_statuses_v3" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_sevs_v1" (token mismatch)
+[Nova] Unauthorized API request to "/api/tracker_effs_v1" (token mismatch)
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_cats_v3" — Serving 307 bytes
+[Nova] GET "tracker_statuses_v3" — Serving 809 bytes
+[Nova] GET "tracker_sevs_v1" — Serving 452 bytes
+[Nova] GET "tracker_effs_v1" — Serving 560 bytes
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_issues_v3" — Serving 30751 bytes
+[Nova] GET "tracker_cats_v3" — Serving 307 bytes
+[Nova] GET "tracker_statuses_v3" — Serving 809 bytes
+[Nova] GET "tracker_sevs_v1" — Serving 452 bytes
+[Nova] GET "tracker_effs_v1" — Serving 560 bytes
