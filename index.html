@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.1.0(28)</title>
+  <title>Issue Tracker v1.4.2(30)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2009,8 +2009,7 @@
         </button>
       </div>
       <div id="app-version"
-        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.1.0 (Build 28)</div>
+        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">v1.4.2 (Build 30)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2516,28 +2515,32 @@
           <div class="conflict-ver">
             <div class="conflict-ver-title">📱 Your Version (Local)</div>
             <div class="conflict-ver-detail" id="conflict-local-detail"></div>
+            <button class="btn btn-primary" onclick="resolveConflict('local')" style="margin-top:12px;width:100%">Keep My Version</button>
           </div>
           <div class="conflict-ver">
             <div class="conflict-ver-title">☁ Server Version (Remote)</div>
-            <button class="btn btn-ghost" onclick="resolveConflict('remote')">Use Server Version</button>
-            <button class="btn btn-primary" onclick="resolveConflict('local')">Keep My Version (Overwrite)</button>
+            <div class="conflict-ver-detail" id="conflict-remote-detail"></div>
+            <button class="btn btn-ghost" onclick="resolveConflict('remote')" style="margin-top:12px;width:100%">Use Server Version</button>
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="toast" id="toast"></div>
-
-      <!-- Export Fallback Modal -->
-      <div class="overlay hidden" id="export-fallback-modal" onclick="if(event.target===this)closeExportFallback()">
+  <!-- Export Fallback Modal -->
+  <div class="overlay hidden" id="export-fallback-modal" onclick="if(event.target===this)closeExportFallback()">
+    <div class="modal" style="max-width: 600px; width: 90%;">
+      <div class="mbody">
         <textarea class="export-fallback-text" id="export-fallback-text" spellcheck="false" readonly></textarea>
       </div>
-    </div>
-    <div class="mfoot">
-      <button class="btn btn-ghost" onclick="selectExportFallbackText()">Select All</button>
-      <button class="btn btn-primary" onclick="closeExportFallback()">Close</button>
+      <div class="mfoot">
+        <button class="btn btn-ghost" onclick="selectExportFallbackText()">Select All</button>
+        <button class="btn btn-primary" onclick="closeExportFallback()">Close</button>
+      </div>
     </div>
   </div>
-  </div>
+
+  <div class="toast" id="toast"></div>
 
   <div class="overlay hidden" id="password-modal">
     <div class="modal" style="max-width: 400px;">
