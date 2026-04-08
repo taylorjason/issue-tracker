@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.1.0(26)</title>
+  <title>Issue Tracker v1.1.0(27)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2010,7 +2010,7 @@
       </div>
       <div id="app-version"
         style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">
-        v1.1.0 (Build 26)</div>
+        v1.1.0 (Build 27)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2818,6 +2818,13 @@
     let syncState = 'notoken';  // notoken | synced | saving | offline | error
 
     function uid() { return Math.random().toString(36).slice(2, 9); }
+    function guuid() {
+      // Use crypto.randomUUID if available, otherwise fallback to a robust generator
+      if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
     function isMobileViewport() { return window.innerWidth <= 720; }
     function applySidebarState() {
       const app = document.querySelector('.app');
@@ -3157,6 +3164,16 @@
           getPayload(LS_EFFS)
         ]);
         issues = i ? JSON.parse(i) : [];
+        // Migration: Ensure every issue has a UUID
+        let needsSave = false;
+        issues.forEach(issue => {
+          if (!issue.uuid) {
+            issue.uuid = guuid();
+            needsSave = true;
+          }
+        });
+        if (needsSave) saveLocal();
+        
         categories = c ? JSON.parse(c) : defaultCategories();
         statuses = s ? JSON.parse(s) : defaultStatuses();
         severities = sv ? JSON.parse(sv) : DEFAULT_SEVERITIES.map(x => ({ ...x }));
@@ -3769,6 +3786,7 @@
 
     function renderSidebarNav() {
       const container = document.getElementById('status-nav');
+      if (!container) return;
       container.innerHTML = statuses.map(st => `
     <button class="nav${currentView === st.id ? ' active' : ''}" data-status-id="${st.id}" onclick="setView('${st.id}')">
       <span style="width:8px;height:8px;border-radius:50%;background:${st.color.fg};display:inline-block;flex-shrink:0;"></span>
@@ -3780,6 +3798,8 @@
       const taggedViews = getTaggedViews();
       const tvSection = document.getElementById('tagged-views-section');
       const tvContainer = document.getElementById('tagged-views-nav');
+      if (!tvSection || !tvContainer) return;
+
       if (!taggedViews.length) {
         tvSection.classList.add('hidden');
         return;
@@ -4171,10 +4191,30 @@
         showToast('Issue updated');
         if (currentIssueId === editingIssueId) openDetail(currentIssueId);
       } else {
-        issues.unshift({ id: makeIssueId(nextId++), ...data, log: [], createdAt: now });
+        issues.unshift({ id: makeIssueId(nextId++), uuid: guuid(), ...data, log: [], createdAt: now });
         showToast('Issue created');
       }
       saveData(); closeIssueModal(); updateCounts(); updateFilterOptions(); renderTable();
+    }
+
+    function updateIssueReferences(oldId, newId) {
+      const oldRef = '#' + oldId;
+      const newRef = '#' + newId;
+      issues.forEach(issue => {
+        if (issue.description && issue.description.includes(oldRef)) {
+          issue.description = issue.description.replaceAll(oldRef, newRef);
+        }
+        if (issue.log) {
+          issue.log.forEach(entry => {
+            if (entry.text && entry.text.includes(oldRef)) {
+              entry.text = entry.text.replaceAll(oldRef, newRef);
+            }
+          });
+        }
+        if (issue.blockedBy && issue.blockedBy.includes(oldId)) {
+          issue.blockedBy = issue.blockedBy.map(bid => bid === oldId ? newId : bid);
+        }
+      });
     }
 
     function deleteIssue(id) {
@@ -4845,9 +4885,40 @@
       } else if (strategy === 'merge') {
         mergeImportMetadata(data);
         data.issues.forEach(impIss => {
-          const idx = issues.findIndex(i => i.id === impIss.id);
-          if (idx > -1) issues[idx] = impIss;
-          else issues.push(impIss);
+          if (!impIss.uuid) impIss.uuid = guuid();
+          const existingByUuid = issues.find(i => i.uuid === impIss.uuid);
+          
+          if (existingByUuid) {
+            const impAt = typeof impIss.updatedAt === 'string' ? new Date(impIss.updatedAt).getTime() : (impIss.updatedAt || 0);
+            const localAt = typeof existingByUuid.updatedAt === 'string' ? new Date(existingByUuid.updatedAt).getTime() : (existingByUuid.updatedAt || 0);
+            
+            if (impAt > localAt) {
+              const oldId = existingByUuid.id;
+              const newId = impIss.id;
+              const idx = issues.indexOf(existingByUuid);
+              issues[idx] = { ...impIss };
+              if (oldId !== newId) updateIssueReferences(oldId, newId);
+            }
+          } else {
+            const existingById = issues.find(i => i.id === impIss.id);
+            if (existingById) {
+              const impCr = typeof impIss.createdAt === 'string' ? new Date(impIss.createdAt).getTime() : (impIss.createdAt || 0);
+              const localCr = typeof existingById.createdAt === 'string' ? new Date(existingById.createdAt).getTime() : (existingById.createdAt || 0);
+
+              if (impCr > localCr) {
+                impIss.id = makeIssueId(nextId++);
+                issues.push({ ...impIss });
+              } else {
+                const oldId = existingById.id;
+                const newId = makeIssueId(nextId++);
+                existingById.id = newId;
+                updateIssueReferences(oldId, newId);
+                issues.push({ ...impIss });
+              }
+            } else {
+              issues.push({ ...impIss });
+            }
+          }
         });
         if (issues.length) { const maxN = Math.max(...issues.map(i => { const m = i.id?.match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; })); nextId = maxN + 1; }
       } else if (strategy === 'append_new') {
