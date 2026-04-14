@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Issue Tracker v1.4.2(30)</title>
+  <title>Issue Tracker v1.4.3(31)</title>
   <style>
     :root {
       --bg: #0e0e10;
@@ -2009,7 +2009,7 @@
         </button>
       </div>
       <div id="app-version"
-        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">v1.4.2 (Build 30)</div>
+        style="font-family:var(--mono);font-size:10px;color:rgba(120,120,140,0.4);margin-top:12px;text-align:center;">v1.4.3 (Build 31)</div>
 
       <div class="sb-bot" style="display:flex;flex-direction:column;gap:8px;">
         <div style="margin-bottom:2px;"><span id="total-count">0</span> issues total</div>
@@ -2078,12 +2078,26 @@
             <div id="f-cat" class="mfilter"></div>
             <div id="f-tag" class="mfilter"></div>
             <div id="f-blocked" class="mfilter"></div>
+            <div id="f-created-date" class="mfilter"></div>
+            <div id="f-updated-date" class="mfilter"></div>
             <button class="btn btn-ghost btn-sm" id="hide-done-btn" onclick="toggleHideDone()">Hide Done</button>
             <button class="btn btn-ghost btn-sm hidden" id="clear-btn" onclick="clearFilters()">Clear</button>
           </div>
+
+          <!-- Bulk Actions Toolbar -->
+          <div id="bulk-actions" class="hidden" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;background:var(--s2);padding:8px 14px;border-radius:var(--r);border:1px solid var(--accent);color:var(--text);">
+            <div style="font-weight:500;font-size:13px;"><span id="bulk-count">0</span> selected</div>
+            <div style="width:1px;height:14px;background:var(--border);"></div>
+            <div style="font-size:13px;color:var(--t2);">Change status to:</div>
+            <select id="bulk-status-sel" class="fsel" style="min-width:140px;"></select>
+            <button class="btn btn-primary btn-sm" onclick="applyBulkStatus()">Update</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearSelection()" style="margin-left:auto;">Cancel</button>
+          </div>
+
           <table class="tbl">
             <thead>
               <tr id="tbl-head">
+                <th style="width: 32px;"><input type="checkbox" id="cb-all" onclick="toggleAllCb(this.checked)" style="accent-color:var(--accent);cursor:pointer;"></th>
                 <th onclick="cycleSort('id')" id="th-id">ID</th>
                 <th onclick="cycleSort('title')" id="th-title">Title</th>
                 <th onclick="cycleSort('status')" id="th-status">Status</th>
@@ -2781,13 +2795,14 @@
 
     // ── State ─────────────────────────────────────────────────────────────────────
     let issues = [];
+    let selectedIssues = new Set();
     let statuses = [];
     let categories = [];
     let nextId = 1;
     let currentView = 'all';
     let lastIssueView = 'all';
     const filterState = (() => {
-      const def = { status: [], sev: [], eff: [], cat: [], tag: [], blocked: [], hideDone: false };
+      const def = { status: [], sev: [], eff: [], cat: [], tag: [], blocked: [], hideDone: false, createdStart: '', createdEnd: '', updatedStart: '', updatedEnd: '' };
       const saved = storageGet(LS_FILTERS);
       if (!saved) return def;
       try {
@@ -3757,6 +3772,7 @@
     }
 
     function setView(v) {
+      if (typeof clearSelection === 'function') clearSelection();
       currentView = v;
       document.querySelectorAll('.nav').forEach(el => el.classList.remove('active'));
       const navEls = document.querySelectorAll(`[data-view="${v}"]`);
@@ -3885,6 +3901,56 @@
       saveFilters();
       renderTable();
     }
+    function setDateFilter(key, val) {
+      filterState[key] = val;
+      updateFilterOptions();
+      saveFilters();
+      renderTable();
+    }
+    function clearDateFilter(startKey, endKey) {
+      filterState[startKey] = '';
+      filterState[endKey] = '';
+      updateFilterOptions();
+      saveFilters();
+      renderTable();
+    }
+    function renderDateFilter(id, label, startKey, endKey) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const menuId = id + '-menu';
+      const wasOpen = document.getElementById(menuId) && !document.getElementById(menuId).classList.contains('hidden');
+      const startVal = filterState[startKey] || '';
+      const endVal = filterState[endKey] || '';
+      const hasValue = startVal || endVal;
+      let summary = label;
+      if (startVal && endVal) summary = `${startVal} to ${endVal}`;
+      else if (startVal) summary = `After ${startVal}`;
+      else if (endVal) summary = `Before ${endVal}`;
+
+      el.innerHTML = `
+        <button type="button" class="fsel mfilter-btn${hasValue ? ' has-value' : ''}" onclick="toggleFilterMenu('${id}')">
+          <span>${esc(summary)}</span>
+          <span class="mfilter-caret">▾</span>
+        </button>
+        <div class="mfilter-menu ${wasOpen ? '' : 'hidden'}" id="${menuId}" 
+          onclick="event.stopPropagation()">
+          <div class="mfilter-actions">
+            <button type="button" class="mfilter-clear" onclick="clearDateFilter('${startKey}', '${endKey}')">Clear</button>
+          </div>
+          <div style="padding: 8px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 12px; color: var(--t2); display: flex; flex-direction: column; gap: 4px;">
+              Start Date:
+              <input type="date" value="${startVal}" onchange="setDateFilter('${startKey}', this.value)" class="srch" style="padding: 4px; border: 1px solid var(--border); border-radius: var(--r); background: var(--s2); color: var(--text);">
+            </label>
+            <label style="font-size: 12px; color: var(--t2); display: flex; flex-direction: column; gap: 4px;">
+              End Date:
+              <input type="date" value="${endVal}" onchange="setDateFilter('${endKey}', this.value)" class="srch" style="padding: 4px; border: 1px solid var(--border); border-radius: var(--r); background: var(--s2); color: var(--text);">
+            </label>
+          </div>
+        </div>
+      `;
+    }
+
     function clearFilter(id) {
       const key = id.replace('f-', '');
       filterState[key] = [];
@@ -3937,6 +4003,8 @@
         { value: 'blocked', label: 'Blocked only' },
         { value: 'blocking', label: 'Blocking others' },
       ], getFilterValues('blocked'));
+      renderDateFilter('f-created-date', 'Created Date', 'createdStart', 'createdEnd');
+      renderDateFilter('f-updated-date', 'Updated Date', 'updatedStart', 'updatedEnd');
       // Severity modal select
       const fsevSel = document.getElementById('f-sev-sel');
       if (fsevSel) {
@@ -3962,10 +4030,96 @@
     function clearFilters() {
       document.getElementById('search').value = '';
       if (document.getElementById('search-clear')) document.getElementById('search-clear').style.display = 'none';
-      Object.keys(filterState).forEach(key => { filterState[key] = Array.isArray(filterState[key]) ? [] : false; });
+      Object.keys(filterState).forEach(key => {
+        if (Array.isArray(filterState[key])) filterState[key] = [];
+        else if (typeof filterState[key] === 'string') filterState[key] = '';
+        else filterState[key] = false;
+      });
       updateFilterOptions();
       updateHideDoneButton();
       saveFilters();
+      if (typeof clearSelection === 'function') clearSelection();
+      renderTable();
+    }
+
+    // ── Bulk Actions ─────────────────────────────────────────────────────────────
+    function toggleIssueCb(cb) {
+      if (cb.checked) {
+        selectedIssues.add(cb.value);
+      } else {
+        selectedIssues.delete(cb.value);
+      }
+      updateBulkUI();
+    }
+
+    function toggleAllCb(checked) {
+      const cbs = document.querySelectorAll('.issue-cb');
+      cbs.forEach(cb => {
+        if (!cb.closest('tr').classList.contains('hidden')) {
+          cb.checked = checked;
+          if (checked) {
+            selectedIssues.add(cb.value);
+          } else {
+            selectedIssues.delete(cb.value);
+          }
+        }
+      });
+      updateBulkUI();
+    }
+
+    function clearSelection() {
+      if (!selectedIssues) return;
+      selectedIssues.clear();
+      const allCb = document.getElementById('cb-all');
+      if (allCb) allCb.checked = false;
+      const cbs = document.querySelectorAll('.issue-cb');
+      cbs.forEach(cb => cb.checked = false);
+      updateBulkUI();
+    }
+
+    function updateBulkUI() {
+      const bulkBar = document.getElementById('bulk-actions');
+      const count = document.getElementById('bulk-count');
+      if (!bulkBar) return;
+      
+      if (selectedIssues.size > 0) {
+        bulkBar.classList.remove('hidden');
+        count.textContent = selectedIssues.size;
+        
+        const sel = document.getElementById('bulk-status-sel');
+        const prevVal = sel.value;
+        sel.innerHTML = statuses.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+        if (prevVal && statuses.some(s => s.id === prevVal)) sel.value = prevVal;
+      } else {
+        bulkBar.classList.add('hidden');
+        const allCb = document.getElementById('cb-all');
+        if (allCb) allCb.checked = false;
+      }
+    }
+
+    function applyBulkStatus() {
+      const newStatus = document.getElementById('bulk-status-sel').value;
+      if (!newStatus) return;
+      
+      let updatedCount = 0;
+      issues.forEach(iss => {
+        if (selectedIssues.has(iss.id)) {
+          if (iss.status !== newStatus) {
+            iss.status = newStatus;
+            iss.updatedAt = Date.now();
+            updatedCount++;
+          }
+        }
+      });
+      
+      if (updatedCount > 0) {
+        saveData();
+        updateCounts();
+        updateFilterOptions();
+        showToast(`Updated ${updatedCount} issue(s)`);
+      }
+      
+      clearSelection();
       renderTable();
     }
 
@@ -3984,6 +4138,10 @@
         if (isStatusView && i.status !== currentView) return false;
         if (isTagView && !(i.tags || []).includes(currentView)) return false;
         if (filterState.hideDone && isDoneStatus(i)) return false;
+        if (filterState.createdStart && i.createdAt < new Date(filterState.createdStart).getTime()) return false;
+        if (filterState.createdEnd && i.createdAt > new Date(filterState.createdEnd + 'T23:59:59.999').getTime()) return false;
+        if (filterState.updatedStart && i.updatedAt < new Date(filterState.updatedStart).getTime()) return false;
+        if (filterState.updatedEnd && i.updatedAt > new Date(filterState.updatedEnd + 'T23:59:59.999').getTime()) return false;
         if (fst.length && !fst.includes(i.status)) return false;
         if (fsev.length && !fsev.includes(i.severity)) return false;
         if (feff.length && !feff.includes(i.effort)) return false;
@@ -4126,6 +4284,7 @@
         const blockedPart = (i.blockedBy || []).length ? `<span class="blocked-indicator">⊘ blocked</span>` : '';
         const metaParts = [cat ? esc(cat) : '', nc ? `${nc} note${nc !== 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
         return `<tr onclick="openDetail('${i.id}')">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="issue-cb" value="${i.id}" ${selectedIssues.has(i.id) ? 'checked' : ''} onclick="event.stopPropagation(); toggleIssueCb(this)" style="accent-color:var(--accent);cursor:pointer;"></td>
       <td><span class="iid">${esc(i.id)}</span></td>
       <td style="max-width:300px">
         <div style="display:flex;align-items:center;gap:6px;min-width:0;">

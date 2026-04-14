@@ -54,7 +54,7 @@ try {
   } else {
     // macOS/Linux zip
     // -r recursive, -q quiet, -x exclude local data
-    const cmd = `zip -rq "${zipName}" index.html scripts -x "nova-data/*"`;
+    const cmd = `zip -rq "${zipName}" index.html scripts nova-data`;
     execSync(cmd, { cwd: rootDir, stdio: 'inherit' });
   }
   
